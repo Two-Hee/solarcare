@@ -1,0 +1,79 @@
+/* ==========================================================================
+   tokens.css — 솔라케어 디자인 토큰
+   --------------------------------------------------------------------------
+   ★ 법인 전환 / 리브랜딩 시에는 이 파일의 변수 값만 수정하면
+     사이트 전체의 색·서체·간격이 한 번에 바뀝니다.
+     다른 CSS 파일에는 색상 코드를 직접 쓰지 마세요.
+   ========================================================================== */
+
+:root {
+  /* ---------- 브랜드 컬러 ---------- */
+  --brand-primary:      #0B2A4A;  /* 딥 네이비 — 신뢰·전문성 (주색) */
+  --brand-primary-700:  #082038;
+  --brand-primary-600:  #123A62;
+  --brand-primary-100:  #D9E4F0;
+  --brand-primary-050:  #EEF3F9;
+
+  --brand-accent:       #FF9E1B;  /* 솔라 오렌지골드 — 채도 높은 포인트색 */
+  --brand-accent-600:   #E8850A;  /* hover */
+  --brand-accent-100:   #FFF0D9;
+  --brand-accent-text:  #9A5B00;  /* 흰 배경 위 텍스트용 (명도대비 확보) */
+
+  /* ---------- 중립 컬러 ---------- */
+  --ink:        #111827;  /* 본문 */
+  --ink-soft:   #4B5563;  /* 보조 본문 */
+  --muted:      #6B7280;  /* 캡션·메타 */
+  --line:       #E5E7EB;  /* 구분선 */
+  --line-soft:  #F1F3F6;
+  --bg:         #FFFFFF;
+  --bg-soft:    #F7F9FC;  /* 섹션 교차 배경 */
+
+  /* ---------- 상태 컬러 (진단 결과 표시 전용) ---------- */
+  --state-ok:   #16A34A;  /* 정상 */
+  --state-warn: #F59E0B;  /* 주의 */
+  --state-bad:  #DC2626;  /* 이상 — 빨강은 여기서만 사용 */
+
+  /* ---------- 타이포그래피 ---------- */
+  --font-sans: "Pretendard Variable", "Pretendard", -apple-system,
+               BlinkMacSystemFont, system-ui, "Malgun Gothic",
+               "맑은 고딕", sans-serif;
+
+  --fs-display: clamp(2rem, 5.2vw, 3.5rem);   /* 히어로 헤드라인 */
+  --fs-h1:      clamp(1.75rem, 4vw, 2.75rem);
+  --fs-h2:      clamp(1.5rem, 3vw, 2.125rem);
+  --fs-h3:      clamp(1.125rem, 2vw, 1.375rem);
+  --fs-lead:    clamp(1rem, 1.5vw, 1.1875rem);
+  --fs-body:    1rem;
+  --fs-sm:      0.9375rem;
+  --fs-xs:      0.8125rem;
+
+  --lh-tight: 1.25;
+  --lh-snug:  1.45;
+  --lh-body:  1.75;
+
+  /* ---------- 레이아웃 ---------- */
+  --container:      1200px;
+  --container-slim: 860px;
+  --gutter:         clamp(20px, 5vw, 40px);
+  --space-section:  clamp(64px, 8vw, 120px);
+  --header-h:       68px;
+
+  /* ---------- 형태 ---------- */
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(11, 42, 74, 0.06);
+  --shadow:    0 4px 16px rgba(11, 42, 74, 0.08);
+  --shadow-lg: 0 12px 40px rgba(11, 42, 74, 0.12);
+
+  /* ---------- 모션 ---------- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur:  0.45s;
+
+  /* ---------- z-index ---------- */
+  --z-header: 100;
+  --z-mobilebar: 90;
+  --z-drawer: 110;
+}

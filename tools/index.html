@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ko" data-root="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무료 진단 도구 | 태양광 PR 계산기 · 발전손실 환산기 — 솔라케어</title>
+<meta name="description" content="태양광 발전소 상태를 스스로 확인해볼 수 있는 무료 계산기. PR(발전효율) 계산기와 발전손실 환산기를 브라우저에서 바로 사용하세요. 입력값은 서버로 전송되지 않습니다.">
+<link rel="canonical" href="https://two-hee.github.io/solarcare/tools/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="솔라케어">
+<meta property="og:title" content="무료 진단 도구 | 솔라케어">
+<meta property="og:description" content="PR 계산기 · 발전손실 환산기 — 브라우저에서 바로 계산, 데이터 전송 없음.">
+<meta property="og:url" content="https://two-hee.github.io/solarcare/tools/">
+<meta name="theme-color" content="#0B2A4A">
+
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/tokens.css">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+
+<body data-page="tools">
+<a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+      <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+          <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+          <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+          <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+        </g>
+        <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+        <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+        <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+          <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+          <line x1="30.33" y1="29" x2="32" y2="42"/>
+        </g>
+      </svg>
+      <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+    </a>
+
+    <nav class="nav" aria-label="주요 메뉴">
+      <div class="nav__item">
+        <a class="nav__link" data-nav="services" href="../services/index.html">서비스
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="../services/index.html#diagnosis">발전저하 원인진단<span class="subnav__note">데이터 분석 + 현장 정밀진단</span></a>
+          <a href="../services/index.html#om">정기점검 · O&amp;M<span class="subnav__note">상시 감시 · 예방정비</span></a>
+          <a href="../services/index.html#emergency">긴급출동 · 고장복구<span class="subnav__note">발전 정지 시 즉시 대응</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="cases" href="../cases/index.html">진단 사례</a></div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="tools" href="./index.html">진단 도구
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="./pr-calculator.html">PR 계산기<span class="subnav__note">발전효율 산출 · 정상 여부 판정</span></a>
+          <a href="./loss-calculator.html">발전손실 환산기<span class="subnav__note">손실 kWh → 금액 · 회수기간</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="about" href="../about.html">회사소개</a></div>
+    </nav>
+
+    <div class="header__actions">
+      <a class="header__tel" data-site-href="telHref" href="tel:00000000000">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/>
+        </svg>
+        <span data-site="tel">000-0000-0000</span>
+      </a>
+      <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+      <button class="hamburger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="메뉴 열기"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <span class="drawer__group-title">서비스</span>
+  <div class="drawer__sub">
+    <a href="../services/index.html#diagnosis">발전저하 원인진단</a>
+    <a href="../services/index.html#om">정기점검 · O&amp;M</a>
+    <a href="../services/index.html#emergency">긴급출동 · 고장복구</a>
+  </div>
+  <a class="drawer__link" href="../cases/index.html">진단 사례</a>
+  <span class="drawer__group-title">진단 도구</span>
+  <div class="drawer__sub">
+    <a href="./pr-calculator.html">PR 계산기</a>
+    <a href="./loss-calculator.html">발전손실 환산기</a>
+  </div>
+  <a class="drawer__link" href="../about.html">회사소개</a>
+  <a class="drawer__link" href="../contact.html">진단 문의</a>
+  <div class="drawer__cta">
+    <a class="btn btn--primary btn--block btn--lg" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  </div>
+</div>
+
+<main id="main">
+
+  <section class="page-head">
+    <div class="container">
+      <nav class="crumb" aria-label="위치"><a href="../index.html">홈</a><span>/</span><span>진단 도구</span></nav>
+      <span class="eyebrow">FREE TOOLS</span>
+      <h1 class="h1">무료 진단 도구</h1>
+      <p class="lead page-head__desc">
+        전문가를 부르기 전에, 우리 발전소가 정상 범위인지 스스로 확인해 볼 수 있는 계산기입니다.
+        모든 계산은 <strong>사용자의 브라우저 안에서만</strong> 처리되며 입력값은 어디에도 전송·저장되지 않습니다.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="grid grid--2">
+
+        <a class="tool-card reveal" href="./pr-calculator.html">
+          <span class="tool-card__badge">TOOL 01</span>
+          <h2 class="card__title">PR 계산기 <span class="muted small" style="font-weight:600">(발전효율)</span></h2>
+          <p class="card__desc">
+            설비용량과 기간 발전량, 일사량만 넣으면 <strong>PR(Performance Ratio)</strong>을 계산합니다.
+            우리 발전소가 정상 범위인지 판정하고, 목표 PR 대비 손실 발전량까지 함께 알려줍니다.
+          </p>
+          <ul class="card__list">
+            <li>PR(발전효율) 산출 및 4단계 판정</li>
+            <li>일평균 발전시간 · 설비이용률 동시 계산</li>
+            <li>목표 PR 대비 손실 발전량 환산</li>
+          </ul>
+          <div class="card__foot"><span class="link-arrow">계산기 열기</span></div>
+        </a>
+
+        <a class="tool-card reveal" href="./loss-calculator.html">
+          <span class="tool-card__badge">TOOL 02</span>
+          <h2 class="card__title">발전손실 환산기 <span class="muted small" style="font-weight:600">(금액)</span></h2>
+          <p class="card__desc">
+            발전량이 몇 % 떨어졌는지를 <strong>연간 손실 금액</strong>으로 바꿔줍니다.
+            조치 비용을 함께 넣으면 회수기간이 나오므로, 지금 고칠지 미룰지 판단할 수 있습니다.
+          </p>
+          <ul class="card__list">
+            <li>저하율 · 연간 손실 발전량(kWh) 산출</li>
+            <li>SMP + REC 단가 기준 손실 금액 환산</li>
+            <li>조치 비용 대비 회수기간(개월) 계산</li>
+          </ul>
+          <div class="card__foot"><span class="link-arrow">계산기 열기</span></div>
+        </a>
+
+        <div class="tool-card tool-card--soon reveal">
+          <span class="tool-card__badge">준비 중</span>
+          <h2 class="card__title">모듈 세척 ROI 계산기</h2>
+          <p class="card__desc">
+            세척 비용과 회복되는 발전량을 비교해 “지금 닦는 게 이득인지”를 계산합니다.
+            오염 누적 속도는 설치 환경(축사·도로변·해안 등)에 따라 크게 달라집니다.
+          </p>
+        </div>
+
+        <div class="tool-card tool-card--soon reveal">
+          <span class="tool-card__badge">준비 중</span>
+          <h2 class="card__title">스트링 편차 진단기</h2>
+          <p class="card__desc">
+            스트링별 전압·전류 측정값을 붙여넣으면 이상 스트링을 자동으로 표시합니다.
+            현장 점검 기록을 그대로 넣어 쓸 수 있게 만들 예정입니다.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="notice reveal" style="margin-top:32px">
+        <strong>계산 결과는 간이 추정치입니다.</strong>
+        일사량 데이터의 출처와 측정 기준, 인버터 계량값과 한전 계량값의 차이, 온도 조건 등에 따라 실제와 차이가 날 수 있습니다.
+        판정이 “주의” 이하로 나왔다면 원인 확정을 위해 현장 진단이 필요합니다.
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <div>
+        <h2 class="cta-band__title">계산해 보니 수치가<br>낮게 나왔다면?</h2>
+        <p class="cta-band__desc">결과 화면을 캡처해서 보내주시면 어떤 원인이 의심되는지 1차 소견을 드립니다.</p>
+      </div>
+      <div class="cta-band__actions">
+        <a class="btn btn--accent btn--lg" href="../contact.html">진단 문의하기</a>
+        <a class="btn btn--ghost-light btn--lg" data-site-href="telHref" href="tel:00000000000"><span data-site="tel">000-0000-0000</span></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+          <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+            <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+              <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+              <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+              <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+            </g>
+            <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+            <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+            <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+              <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+              <line x1="30.33" y1="29" x2="32" y2="42"/>
+            </g>
+          </svg>
+          <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+        </a>
+        <p class="footer__info">
+          <span data-site-bizline>솔라케어 · 대표 ○○○ · 사업자등록번호 000-00-00000</span><br>
+          <span data-site="address">○○도 ○○시 ○○로 000</span><br>
+          <span data-site="hours">평일 09:00 – 18:00 (긴급 출동은 상시 문의)</span>
+        </p>
+      </div>
+      <div>
+        <div class="footer__col-title">Service</div>
+        <ul class="footer__list">
+          <li><a href="../services/index.html#diagnosis">발전저하 원인진단</a></li>
+          <li><a href="../services/index.html#om">정기점검 · O&amp;M</a></li>
+          <li><a href="../services/index.html#emergency">긴급출동 · 고장복구</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Resource</div>
+        <ul class="footer__list">
+          <li><a href="../cases/index.html">진단 사례</a></li>
+          <li><a href="./pr-calculator.html">PR 계산기</a></li>
+          <li><a href="./loss-calculator.html">발전손실 환산기</a></li>
+          <li><a href="../index.html#causes">발전저하 요인</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Contact</div>
+        <ul class="footer__list">
+          <li><a data-site-href="telHref" href="tel:00000000000"><span data-site="tel">000-0000-0000</span></a></li>
+          <li><a data-site-mailto href="mailto:contact@example.com"><span data-site="email">contact@example.com</span></a></li>
+          <li><a href="../about.html">회사소개</a></li>
+          <li><a href="../contact.html">진단 문의하기</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span data-site-year>2026</span> 솔라케어. All rights reserved.</span>
+      <span>본 사이트는 고객사의 발전 데이터를 저장하거나 게시하지 않습니다.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="mobile-bar">
+  <a class="btn btn--outline" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+</div>
+
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>

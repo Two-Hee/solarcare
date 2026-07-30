@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="솔라케어 심볼">
+  <title>솔라케어 심볼</title>
+  <!-- 태양: 솔라 오렌지골드 -->
+  <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+    <line x1="24"    y1="5.5"  x2="24"    y2="2.5"/>
+    <line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+    <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/>
+    <line x1="13.5"  y1="16"   x2="10.5"  y2="16"/>
+    <line x1="34.5"  y1="16"   x2="37.5"  y2="16"/>
+  </g>
+  <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+
+  <!-- 태양광 모듈: 딥 네이비 -->
+  <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+  <g stroke="#FFFFFF" stroke-opacity="0.38" stroke-width="1.4">
+    <line x1="12.6"  y1="35.5" x2="40.4"  y2="35.5"/>
+    <line x1="22.67" y1="29"   x2="21"    y2="42"/>
+    <line x1="30.33" y1="29"   x2="32"    y2="42"/>
+  </g>
+</svg>

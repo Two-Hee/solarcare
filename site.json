@@ -1,0 +1,29 @@
+{
+  "_comment": "회사 정보는 이 파일 한 곳에서만 관리합니다. 법인 전환 시 이 값들만 수정하세요.",
+
+  "brandKo": "솔라케어",
+  "brandEn": "SolarCare",
+  "tagline": "태양광 발전저하 원인진단 · O&M 전문",
+
+  "legalName": "솔라케어",
+  "legalForm": "개인사업자",
+  "ceo": "○○○",
+  "bizNo": "000-00-00000",
+
+  "tel": "000-0000-0000",
+  "telHref": "tel:00000000000",
+  "email": "contact@example.com",
+  "address": "○○도 ○○시 ○○로 000",
+  "hours": "평일 09:00 – 18:00 (긴급 출동은 상시 문의)",
+
+  "kakaoChannel": "",
+  "formEndpoint": "",
+
+  "baseUrl": "https://two-hee.github.io/solarcare",
+
+  "_todo": [
+    "ceo, bizNo, tel, telHref, email, address 를 실제 정보로 교체",
+    "formEndpoint: Formspree 등에서 발급받은 주소 입력 (비우면 폼이 이메일 방식으로 동작)",
+    "kakaoChannel: 카카오톡 채널 주소 입력 (비우면 버튼 숨김)"
+  ]
+}

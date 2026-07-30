@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# 네이버
+User-agent: Yeti
+Allow: /
+
+# 다음
+User-agent: Daum
+Allow: /
+
+Sitemap: https://two-hee.github.io/solarcare/sitemap.xml

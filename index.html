@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="ko" data-root="./">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔라케어 | 태양광 발전저하 원인진단 · O&amp;M 유지보수</title>
+<meta name="description" content="태양광 발전량이 줄었다면 원인부터 찾습니다. 모니터링 데이터 분석과 현장 정밀진단으로 발전저하 요인을 규명하고 회복량을 숫자로 검증합니다. 전국 대응 · 건물 옥상 · 나대지 · 축사 전 설치유형.">
+<meta name="keywords" content="태양광 유지보수, 태양광 O&M, 발전량 저하, 태양광 원인진단, 스트링 진단, 인버터 트립, 열화상 점검, PID, 핫스팟, 태양광 정기점검">
+<meta name="author" content="솔라케어">
+
+<!-- 절대주소는 이 3곳(canonical, og:url, JSON-LD)에서만 사용합니다.
+     자체 도메인으로 이전할 때 여기만 수정하세요. -->
+<link rel="canonical" href="https://two-hee.github.io/solarcare/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="솔라케어">
+<meta property="og:title" content="솔라케어 | 태양광 발전저하 원인진단 · O&amp;M 유지보수">
+<meta property="og:description" content="발전량이 줄었다면 원인부터 찾습니다. 데이터 분석 + 현장 정밀진단으로 발전저하 요인을 규명합니다.">
+<meta property="og:url" content="https://two-hee.github.io/solarcare/">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0B2A4A">
+
+<link rel="icon" href="./assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/img/favicon.svg">
+
+<!-- JS 사용 가능 표시. JS 가 없는 환경에서 스크롤 애니메이션이
+     콘텐츠를 숨긴 채로 두지 않도록 합니다. (base.css 의 .js .reveal 참고) -->
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="stylesheet" href="./assets/css/tokens.css">
+<link rel="stylesheet" href="./assets/css/base.css">
+<link rel="stylesheet" href="./assets/css/components.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "솔라케어",
+  "alternateName": "SolarCare",
+  "description": "태양광발전설비 모니터링 기반 발전저하 원인진단 및 O&M 유지보수",
+  "url": "https://two-hee.github.io/solarcare/",
+  "areaServed": { "@type": "Country", "name": "대한민국" },
+  "knowsAbout": ["태양광 발전저하 진단", "인버터 고장 분석", "스트링 편차 진단", "열화상 점검", "PID 현상", "모듈 오염 손실"]
+}
+</script>
+</head>
+
+<body data-page="home">
+<a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+<!-- ==================================================================
+     헤더  ※ 수정 시 모든 페이지의 헤더를 함께 맞춰주세요.
+     (페이지가 10개를 넘어가면 Astro 등으로 공통화 전환 권장 — README 참고)
+     ================================================================== -->
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href="./index.html" aria-label="솔라케어 홈">
+      <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+          <line x1="24" y1="5.5" x2="24" y2="2.5"/>
+          <line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+          <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/>
+          <line x1="13.5" y1="16" x2="10.5" y2="16"/>
+          <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+        </g>
+        <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+        <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+        <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+          <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/>
+          <line x1="22.67" y1="29" x2="21" y2="42"/>
+          <line x1="30.33" y1="29" x2="32" y2="42"/>
+        </g>
+      </svg>
+      <span class="logo__text">
+        <span class="logo__name">솔라케어</span>
+        <span class="logo__sub">SolarCare</span>
+      </span>
+    </a>
+
+    <nav class="nav" aria-label="주요 메뉴">
+      <div class="nav__item">
+        <a class="nav__link" data-nav="services" href="./services/index.html">서비스
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="./services/index.html#diagnosis">발전저하 원인진단<span class="subnav__note">데이터 분석 + 현장 정밀진단</span></a>
+          <a href="./services/index.html#om">정기점검 · O&amp;M<span class="subnav__note">상시 감시 · 예방정비</span></a>
+          <a href="./services/index.html#emergency">긴급출동 · 고장복구<span class="subnav__note">발전 정지 시 즉시 대응</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="cases" href="./cases/index.html">진단 사례</a></div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="tools" href="./tools/index.html">진단 도구
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="./tools/pr-calculator.html">PR 계산기<span class="subnav__note">발전효율 산출 · 정상 여부 판정</span></a>
+          <a href="./tools/loss-calculator.html">발전손실 환산기<span class="subnav__note">손실 kWh → 금액 · 회수기간</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="about" href="./about.html">회사소개</a></div>
+    </nav>
+
+    <div class="header__actions">
+      <a class="header__tel" data-site-href="telHref" href="tel:00000000000">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/>
+        </svg>
+        <span data-site="tel">000-0000-0000</span>
+      </a>
+      <a class="btn btn--primary" href="./contact.html">진단 문의</a>
+      <button class="hamburger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="메뉴 열기"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <span class="drawer__group-title">서비스</span>
+  <div class="drawer__sub">
+    <a href="./services/index.html#diagnosis">발전저하 원인진단</a>
+    <a href="./services/index.html#om">정기점검 · O&amp;M</a>
+    <a href="./services/index.html#emergency">긴급출동 · 고장복구</a>
+  </div>
+  <a class="drawer__link" href="./cases/index.html">진단 사례</a>
+  <span class="drawer__group-title">진단 도구</span>
+  <div class="drawer__sub">
+    <a href="./tools/pr-calculator.html">PR 계산기</a>
+    <a href="./tools/loss-calculator.html">발전손실 환산기</a>
+  </div>
+  <a class="drawer__link" href="./about.html">회사소개</a>
+  <a class="drawer__link" href="./contact.html">진단 문의</a>
+  <div class="drawer__cta">
+    <a class="btn btn--primary btn--block btn--lg" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  </div>
+</div>
+
+<main id="main">
+
+  <!-- ============================== 히어로 ============================== -->
+  <section class="hero">
+    <svg class="hero__deco" viewBox="0 0 200 200" aria-hidden="true">
+      <g stroke="#FF9E1B" stroke-width="1.2" fill="none">
+        <path d="M20 170 L50 60 H180 L165 170 Z"/>
+        <path d="M27 143 H172"/><path d="M34 116 H176"/><path d="M41 89 H179"/>
+        <path d="M76 60 L66 170"/><path d="M108 60 L104 170"/><path d="M140 60 L142 170"/>
+      </g>
+    </svg>
+    <div class="container hero__inner">
+      <span class="eyebrow">SOLAR O&amp;M · DIAGNOSTICS</span>
+      <h1 class="display hero__title">발전량이 줄었다면,<br><em>원인부터</em> 찾습니다.</h1>
+      <p class="hero__desc">
+        솔라케어는 태양광발전설비의 모니터링 데이터를 분석해 발전저하 요인을 규명하고,
+        조치 후 회복된 발전량까지 숫자로 검증하는 유지보수 전문 서비스입니다.
+        전국 어디든, 건물 옥상부터 나대지·축사까지 모든 설치유형에 대응합니다.
+      </p>
+      <div class="hero__actions">
+        <a class="btn btn--accent btn--lg" href="./contact.html">무료 발전저하 상담</a>
+        <a class="btn btn--ghost-light btn--lg" href="./services/index.html">서비스 살펴보기</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== 지표 스트립 ============================== -->
+  <section class="strip">
+    <div class="container strip__grid">
+      <div class="strip__item reveal">
+        <div class="strip__label">COVERAGE</div>
+        <div class="strip__title">전국 현장 대응</div>
+        <p class="strip__desc">지역 제한 없이 발전소 소재지로 직접 방문해 진단합니다.</p>
+      </div>
+      <div class="strip__item reveal">
+        <div class="strip__label">SITE TYPE</div>
+        <div class="strip__title">전 설치유형 경험</div>
+        <p class="strip__desc">건물 옥상·경사지붕·나대지·축사·주차장 등 유형별 특성에 맞춰 점검합니다.</p>
+      </div>
+      <div class="strip__item reveal">
+        <div class="strip__label">METHOD</div>
+        <div class="strip__title">데이터 기반 진단</div>
+        <p class="strip__desc">감이 아닌 발전 데이터에서 출발해, 현장에서 원인을 확정합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== 서비스 ============================== -->
+  <section class="section" id="services">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">SERVICE</span>
+        <h2 class="h2">발전소의 수익을 지키는<br>세 가지 유지보수</h2>
+        <p class="lead">설비를 고치는 일이 아니라, 잃어버린 발전량을 되찾는 일로 접근합니다.</p>
+      </div>
+
+      <div class="grid grid--3">
+        <article class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 17l5-6 4 4 5-8 4 5"/><path d="M3 21h18"/>
+            </svg>
+          </div>
+          <h3 class="card__title">발전저하 원인진단</h3>
+          <p class="card__desc">
+            발전량이 설계치나 예년 대비 떨어졌지만 원인을 모르는 상태를 해결합니다.
+            데이터 이상 패턴을 먼저 좁히고, 현장에서 원인을 확정합니다.
+          </p>
+          <ul class="card__list">
+            <li>PR(발전효율) 산출 및 기준 대비 편차 분석</li>
+            <li>스트링·MPPT별 전압·전류 편차 추적</li>
+            <li>인버터 이벤트·트립 이력 해석</li>
+            <li>원인 · 손실량 · 조치안 리포트 제공</li>
+          </ul>
+          <div class="card__foot"><a class="link-arrow" href="./services/index.html#diagnosis">자세히 보기</a></div>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <h3 class="card__title">정기점검 · O&amp;M 계약</h3>
+          <p class="card__desc">
+            문제가 생긴 뒤 대응하는 대신, 발전량이 떨어지기 전에 잡아냅니다.
+            점검 주기와 항목을 발전소 여건에 맞춰 설계합니다.
+          </p>
+          <ul class="card__list">
+            <li>모듈·접속함·인버터·수배전 정기점검</li>
+            <li>모니터링 상시 감시 및 이상 알림</li>
+            <li>월간 발전 리포트 및 개선 제안</li>
+            <li>초목 제거·모듈 세척 등 예방정비</li>
+          </ul>
+          <div class="card__foot"><a class="link-arrow" href="./services/index.html#om">자세히 보기</a></div>
+        </article>
+
+        <article class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+            </svg>
+          </div>
+          <h3 class="card__title">긴급출동 · 고장복구</h3>
+          <p class="card__desc">
+            발전 정지는 하루가 곧 손실입니다. 원격으로 상태를 먼저 확인해
+            원인을 좁힌 뒤 출동하므로 복구까지의 시간을 줄입니다.
+          </p>
+          <ul class="card__list">
+            <li>발전 정지·인버터 이상 원격 1차 확인</li>
+            <li>접속함 퓨즈·커넥터 아크·결선 불량 조치</li>
+            <li>인버터 A/S 접수 및 제조사 협의 대행</li>
+            <li>복구 후 발전량 정상화 검증</li>
+          </ul>
+          <div class="card__foot"><a class="link-arrow" href="./services/index.html#emergency">자세히 보기</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== 진단 프로세스 ============================== -->
+  <section class="section section--soft" id="process">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">PROCESS</span>
+        <h2 class="h2">원인을 찾는 순서가<br>결과를 바꿉니다</h2>
+        <p class="lead">현장을 무작정 훑지 않습니다. 데이터로 범위를 좁힌 다음 현장에서 확정합니다.</p>
+      </div>
+
+      <div class="steps steps--4 reveal">
+        <div class="step">
+          <h3 class="step__title">데이터 분석</h3>
+          <p class="step__desc">모니터링 발전 이력, 일사량, 인버터 이벤트 로그를 받아 PR을 산출하고 이상 구간과 의심 계통을 좁힙니다.</p>
+        </div>
+        <div class="step">
+          <h3 class="step__title">현장 정밀진단</h3>
+          <p class="step__desc">좁혀진 범위를 대상으로 스트링 개방전압·동작전류 측정, 육안·열적 이상 확인, 결선·접속부를 점검합니다.</p>
+        </div>
+        <div class="step">
+          <h3 class="step__title">원인 리포트</h3>
+          <p class="step__desc">추정이 아닌 근거를 제시합니다. 원인, 연간 손실 발전량과 금액, 조치 우선순위와 예상 비용을 문서로 드립니다.</p>
+        </div>
+        <div class="step">
+          <h3 class="step__title">조치 · 회복 검증</h3>
+          <p class="step__desc">조치 후 동일 조건에서 발전량을 재측정해 실제로 회복되었는지 숫자로 확인하고 종결합니다.</p>
+        </div>
+      </div>
+
+      <div class="notice reveal" style="margin-top:28px">
+        <strong>진단만 의뢰하셔도 됩니다.</strong>
+        시공이나 자재 판매를 전제로 하지 않기 때문에, 필요 없는 교체를 권하지 않습니다.
+        원인 규명과 손실량 산정까지만 맡기시는 것도 가능합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== 설치유형별 ============================== -->
+  <section class="section" id="sitetype">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">SITE TYPE</span>
+        <h2 class="h2">설치 위치에 따라<br>고장의 얼굴이 다릅니다</h2>
+        <p class="lead">같은 발전저하라도 옥상과 나대지는 원인이 다릅니다. 유형별로 먼저 의심하는 항목이 다릅니다.</p>
+      </div>
+
+      <div class="tiles reveal">
+        <div class="tile">
+          <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 21V8l9-5 9 5v13"/><path d="M3 12h18"/><path d="M9 21v-5h6v5"/>
+          </svg>
+          <div class="tile__name">건물 옥상</div>
+          <p class="tile__note">주변 건물 음영, 방수층 손상, 구조 하중, 실외기 열기</p>
+        </div>
+        <div class="tile">
+          <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12l10-8 10 8"/><path d="M5 11v9h14v-9"/>
+          </svg>
+          <div class="tile__name">경사지붕</div>
+          <p class="tile__note">통풍 부족에 따른 온도 상승, 누수, 이격거리 부족</p>
+        </div>
+        <div class="tile">
+          <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 18h18"/><path d="M6 18V9h12v9"/><path d="M4 9l8-5 8 5"/><path d="M9 18v-4h6v4"/>
+          </svg>
+          <div class="tile__name">나대지</div>
+          <p class="tile__note">초목 성장 음영, 적설, 토사 유실, 구조물 침하</p>
+        </div>
+        <div class="tile">
+          <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="10" width="18" height="10" rx="1.5"/><path d="M3 10l9-6 9 6"/><path d="M8 20v-5h8v5"/>
+          </svg>
+          <div class="tile__name">축사 · 창고</div>
+          <p class="tile__note">분진·암모니아 부식, 오염 누적, 습기</p>
+        </div>
+        <div class="tile">
+          <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 8h16l1 6H3l1-6z"/><path d="M6 14v6"/><path d="M18 14v6"/><path d="M9 8V4h6v4"/>
+          </svg>
+          <div class="tile__name">주차장 · 기타</div>
+          <p class="tile__note">차량 배기 오염, 진동, 국부 음영, 안전 이슈</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== 발전저하 요인 ============================== -->
+  <section class="section section--soft" id="causes">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">ROOT CAUSE</span>
+        <h2 class="h2">주로 이런 원인들이<br>발전량을 먹고 있습니다</h2>
+        <p class="lead">현장에서 실제로 자주 확인되는 발전저하 요인입니다. 각 항목별 진단 사례는 순차적으로 공개할 예정입니다.</p>
+      </div>
+
+      <div class="causes reveal">
+        <div class="cause">
+          <span class="cause__tag">음영</span>
+          <div>
+            <div class="cause__name">주변 구조물 · 수목 성장에 따른 그림자</div>
+            <p class="cause__desc">준공 당시엔 없던 음영이 몇 년 뒤 생깁니다. 한 스트링의 일부만 가려도 전체 출력이 끌려 내려갑니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">오염</span>
+          <div>
+            <div class="cause__name">황사 · 낙엽 · 조류 분변 · 축사 분진</div>
+            <p class="cause__desc">설치 환경에 따라 오염 양상과 누적 속도가 크게 다릅니다. 세척 시점을 비용 대비로 판단해야 합니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">모듈</span>
+          <div>
+            <div class="cause__name">PID 현상 · 핫스팟 · 셀 크랙 · 백시트 열화</div>
+            <p class="cause__desc">겉보기엔 정상인데 출력만 떨어지는 유형입니다. 전기적 측정과 열적 확인을 함께 봐야 구분됩니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">결선</span>
+          <div>
+            <div class="cause__name">접속함 퓨즈 단선 · 커넥터 아크 · 체결 불량</div>
+            <p class="cause__desc">스트링 한 계통이 조용히 죽어 있어도 전체 발전량으로는 잘 드러나지 않습니다. 화재 위험도 함께 봅니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">인버터</span>
+          <div>
+            <div class="cause__name">트립 반복 · MPPT 오동작 · 냉각 불량</div>
+            <p class="cause__desc">이벤트 로그를 시간대·기상 조건과 겹쳐 보면 설비 문제인지 계통 문제인지 구분할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">계통</span>
+          <div>
+            <div class="cause__name">계통 전압 상승에 의한 출력 제한</div>
+            <p class="cause__desc">설비는 정상인데 발전을 못 하는 경우입니다. 설비 교체로 해결되지 않으므로 원인 구분이 특히 중요합니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">설계</span>
+          <div>
+            <div class="cause__name">방위 · 경사각 · 이격거리 부적합</div>
+            <p class="cause__desc">준공 시점부터 설계치에 못 미치는 경우입니다. 개선 가능 범위와 회수기간을 함께 산정합니다.</p>
+          </div>
+        </div>
+        <div class="cause">
+          <span class="cause__tag">경년</span>
+          <div>
+            <div class="cause__name">정상 열화 vs 비정상 열화 구분</div>
+            <p class="cause__desc">연간 열화율 범위를 벗어났는지 판단해, 보증 청구가 가능한 사안인지 알려드립니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== CTA ============================== -->
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <div>
+        <h2 class="cta-band__title">발전량 그래프만 보내주셔도<br>1차 소견을 드립니다.</h2>
+        <p class="cta-band__desc">모니터링 화면 캡처나 월별 발전량 자료만 있으면 상담을 시작할 수 있습니다.</p>
+      </div>
+      <div class="cta-band__actions">
+        <a class="btn btn--accent btn--lg" href="./contact.html">진단 문의하기</a>
+        <a class="btn btn--ghost-light btn--lg" data-site-href="telHref" href="tel:00000000000">
+          <span data-site="tel">000-0000-0000</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ==================================================================
+     푸터  ※ 수정 시 모든 페이지의 푸터를 함께 맞춰주세요.
+     ================================================================== -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <a class="logo" href="./index.html" aria-label="솔라케어 홈">
+          <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+            <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+              <line x1="24" y1="5.5" x2="24" y2="2.5"/>
+              <line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+              <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/>
+              <line x1="13.5" y1="16" x2="10.5" y2="16"/>
+              <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+            </g>
+            <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+            <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+            <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+              <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/>
+              <line x1="22.67" y1="29" x2="21" y2="42"/>
+              <line x1="30.33" y1="29" x2="32" y2="42"/>
+            </g>
+          </svg>
+          <span class="logo__text">
+            <span class="logo__name">솔라케어</span>
+            <span class="logo__sub">SolarCare</span>
+          </span>
+        </a>
+        <p class="footer__info">
+          <span data-site-bizline>솔라케어 · 대표 ○○○ · 사업자등록번호 000-00-00000</span><br>
+          <span data-site="address">○○도 ○○시 ○○로 000</span><br>
+          <span data-site="hours">평일 09:00 – 18:00 (긴급 출동은 상시 문의)</span>
+        </p>
+      </div>
+
+      <div>
+        <div class="footer__col-title">Service</div>
+        <ul class="footer__list">
+          <li><a href="./services/index.html#diagnosis">발전저하 원인진단</a></li>
+          <li><a href="./services/index.html#om">정기점검 · O&amp;M</a></li>
+          <li><a href="./services/index.html#emergency">긴급출동 · 고장복구</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer__col-title">Resource</div>
+        <ul class="footer__list">
+          <li><a href="./cases/index.html">진단 사례</a></li>
+          <li><a href="./tools/pr-calculator.html">PR 계산기</a></li>
+          <li><a href="./tools/loss-calculator.html">발전손실 환산기</a></li>
+          <li><a href="./index.html#causes">발전저하 요인</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer__col-title">Contact</div>
+        <ul class="footer__list">
+          <li><a data-site-href="telHref" href="tel:00000000000"><span data-site="tel">000-0000-0000</span></a></li>
+          <li><a data-site-mailto href="mailto:contact@example.com"><span data-site="email">contact@example.com</span></a></li>
+          <li><a href="./about.html">회사소개</a></li>
+          <li><a href="./contact.html">진단 문의하기</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer__bottom">
+      <span>© <span data-site-year>2026</span> 솔라케어. All rights reserved.</span>
+      <span>본 사이트는 고객사의 발전 데이터를 저장하거나 게시하지 않습니다.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- 모바일 하단 고정바 -->
+<div class="mobile-bar">
+  <a class="btn btn--outline" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  <a class="btn btn--primary" href="./contact.html">진단 문의</a>
+</div>
+
+<script src="./assets/js/site.js" defer></script>
+</body>
+</html>

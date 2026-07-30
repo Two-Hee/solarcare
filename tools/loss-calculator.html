@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="ko" data-root="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>태양광 발전손실 환산기 | 저하율을 연간 손실 금액으로 — 솔라케어</title>
+<meta name="description" content="태양광 발전량이 몇 % 떨어졌는지를 연간 손실 발전량과 손실 금액으로 환산합니다. SMP·REC 단가 반영, 조치 비용 대비 회수기간까지 계산. 입력값은 서버로 전송되지 않습니다.">
+<link rel="canonical" href="https://two-hee.github.io/solarcare/tools/loss-calculator.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="솔라케어">
+<meta property="og:title" content="태양광 발전손실 환산기 | 솔라케어">
+<meta property="og:description" content="저하율 → 연간 손실 kWh → 손실 금액 → 조치비용 회수기간까지 한 번에.">
+<meta property="og:url" content="https://two-hee.github.io/solarcare/tools/loss-calculator.html">
+<meta name="theme-color" content="#0B2A4A">
+
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/tokens.css">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+
+<body data-page="tools">
+<a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+      <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+          <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+          <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+          <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+        </g>
+        <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+        <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+        <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+          <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+          <line x1="30.33" y1="29" x2="32" y2="42"/>
+        </g>
+      </svg>
+      <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+    </a>
+
+    <nav class="nav" aria-label="주요 메뉴">
+      <div class="nav__item">
+        <a class="nav__link" data-nav="services" href="../services/index.html">서비스
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="../services/index.html#diagnosis">발전저하 원인진단<span class="subnav__note">데이터 분석 + 현장 정밀진단</span></a>
+          <a href="../services/index.html#om">정기점검 · O&amp;M<span class="subnav__note">상시 감시 · 예방정비</span></a>
+          <a href="../services/index.html#emergency">긴급출동 · 고장복구<span class="subnav__note">발전 정지 시 즉시 대응</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="cases" href="../cases/index.html">진단 사례</a></div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="tools" href="./index.html">진단 도구
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="./pr-calculator.html">PR 계산기<span class="subnav__note">발전효율 산출 · 정상 여부 판정</span></a>
+          <a href="./loss-calculator.html">발전손실 환산기<span class="subnav__note">손실 kWh → 금액 · 회수기간</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="about" href="../about.html">회사소개</a></div>
+    </nav>
+
+    <div class="header__actions">
+      <a class="header__tel" data-site-href="telHref" href="tel:00000000000">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/>
+        </svg>
+        <span data-site="tel">000-0000-0000</span>
+      </a>
+      <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+      <button class="hamburger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="메뉴 열기"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <span class="drawer__group-title">서비스</span>
+  <div class="drawer__sub">
+    <a href="../services/index.html#diagnosis">발전저하 원인진단</a>
+    <a href="../services/index.html#om">정기점검 · O&amp;M</a>
+    <a href="../services/index.html#emergency">긴급출동 · 고장복구</a>
+  </div>
+  <a class="drawer__link" href="../cases/index.html">진단 사례</a>
+  <span class="drawer__group-title">진단 도구</span>
+  <div class="drawer__sub">
+    <a href="./pr-calculator.html">PR 계산기</a>
+    <a href="./loss-calculator.html">발전손실 환산기</a>
+  </div>
+  <a class="drawer__link" href="../about.html">회사소개</a>
+  <a class="drawer__link" href="../contact.html">진단 문의</a>
+  <div class="drawer__cta">
+    <a class="btn btn--primary btn--block btn--lg" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  </div>
+</div>
+
+<main id="main">
+
+  <section class="page-head">
+    <div class="container">
+      <nav class="crumb" aria-label="위치">
+        <a href="../index.html">홈</a><span>/</span><a href="./index.html">진단 도구</a><span>/</span><span>발전손실 환산기</span>
+      </nav>
+      <span class="eyebrow">TOOL 02</span>
+      <h1 class="h1">발전손실 환산기</h1>
+      <p class="lead page-head__desc">
+        “발전량이 10% 떨어졌다”는 말은 감이 잘 오지 않습니다.
+        그것을 <strong>1년에 몇 원 손실</strong>인지로 바꿔 보면, 지금 고칠지 미룰지 판단할 수 있습니다.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="calc">
+
+        <!-- ================= 입력 ================= -->
+        <div>
+          <form class="form" id="loss-form" novalidate>
+
+            <div class="calc__group">
+              <div class="calc__group-title">1. 발전량 비교</div>
+              <p class="calc__group-note">
+                “정상이던 시절”과 “지금”을 비교합니다. 준공 직후 1~2년 실적이나 설계 발전량을 정상 기준으로 삼으세요.
+              </p>
+
+              <div class="segmented" role="radiogroup" aria-label="발전량 입력 방식">
+                <label><input type="radio" name="mode" value="hours" checked><span>발전시간으로 입력</span></label>
+                <label><input type="radio" name="mode" value="annual"><span>연간 발전량으로 입력</span></label>
+              </div>
+
+              <!-- 발전시간 방식 -->
+              <div id="mode-hours">
+                <div class="field" style="margin-top:20px">
+                  <label class="field__label" for="l-cap">설비용량 (DC)</label>
+                  <div class="inputunit">
+                    <input class="input" id="l-cap" type="number" step="any" min="0" value="99.9" inputmode="decimal">
+                    <span class="inputunit__unit">kWp</span>
+                  </div>
+                </div>
+                <div class="form__row" style="margin-top:20px">
+                  <div class="field">
+                    <label class="field__label" for="l-hnorm">정상 일평균 발전시간</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-hnorm" type="number" step="any" min="0" value="3.6" inputmode="decimal">
+                      <span class="inputunit__unit">h/일</span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="l-hnow">현재 일평균 발전시간</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-hnow" type="number" step="any" min="0" value="3.1" inputmode="decimal">
+                      <span class="inputunit__unit">h/일</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 연간 발전량 방식 -->
+              <div id="mode-annual" hidden>
+                <div class="form__row" style="margin-top:20px">
+                  <div class="field">
+                    <label class="field__label" for="l-enorm">정상 연간 발전량</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-enorm" type="number" step="any" min="0" value="131000" inputmode="decimal">
+                      <span class="inputunit__unit">kWh</span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="l-enow">현재 연간 발전량</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-enow" type="number" step="any" min="0" value="113000" inputmode="decimal">
+                      <span class="inputunit__unit">kWh</span>
+                    </div>
+                  </div>
+                </div>
+                <p class="field__hint" style="margin-top:10px">
+                  1년치가 없으면 같은 달끼리 비교한 값(예: 작년 7월 vs 올해 7월)을 넣고,
+                  결과를 “해당 기간 손실”로 읽으셔도 됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div class="calc__group">
+              <div class="calc__group-title">2. 판매 단가</div>
+              <p class="calc__group-note">
+                고정가격계약(SMP+REC 합산)을 맺으셨다면 두 번째 방식이 정확합니다.
+                아래 기본값은 예시이므로 <strong>본인 계약 조건으로 바꿔 넣으세요.</strong>
+              </p>
+
+              <div class="segmented" role="radiogroup" aria-label="단가 입력 방식">
+                <label><input type="radio" name="priceMode" value="smprec" checked><span>SMP + REC</span></label>
+                <label><input type="radio" name="priceMode" value="fixed"><span>합산 단가 직접 입력</span></label>
+              </div>
+
+              <div id="price-smprec">
+                <div class="form__row" style="margin-top:20px">
+                  <div class="field">
+                    <label class="field__label" for="l-smp">SMP</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-smp" type="number" step="any" min="0" value="130" inputmode="decimal">
+                      <span class="inputunit__unit">원/kWh</span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="l-rec">REC 단가</label>
+                    <div class="inputunit">
+                      <input class="input" id="l-rec" type="number" step="any" min="0" value="70000" inputmode="decimal">
+                      <span class="inputunit__unit">원/REC</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="field" style="margin-top:20px; max-width:240px">
+                  <label class="field__label" for="l-weight">REC 가중치</label>
+                  <div class="inputunit">
+                    <input class="input" id="l-weight" type="number" step="any" min="0" value="1.0" inputmode="decimal">
+                    <span class="inputunit__unit">배</span>
+                  </div>
+                  <span class="field__hint">1 REC = 1 MWh 기준입니다. (건물 설치·수상 등은 가중치가 다릅니다)</span>
+                </div>
+              </div>
+
+              <div id="price-fixed" hidden>
+                <div class="field" style="margin-top:20px; max-width:260px">
+                  <label class="field__label" for="l-fixed">합산 판매 단가</label>
+                  <div class="inputunit">
+                    <input class="input" id="l-fixed" type="number" step="any" min="0" value="160" inputmode="decimal">
+                    <span class="inputunit__unit">원/kWh</span>
+                  </div>
+                  <span class="field__hint">고정가격계약 낙찰 단가를 그대로 넣으세요.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="calc__group">
+              <div class="calc__group-title">3. 조치 비용 (선택)</div>
+              <p class="calc__group-note">
+                견적을 받으셨다면 넣어보세요. 손실을 막아 얻는 이익으로 그 비용을 몇 달에 회수하는지 계산합니다.
+              </p>
+              <div class="field" style="max-width:280px">
+                <label class="field__label" for="l-cost">예상 조치 비용</label>
+                <div class="inputunit">
+                  <input class="input" id="l-cost" type="number" step="any" min="0" value="3000000" inputmode="decimal">
+                  <span class="inputunit__unit">원</span>
+                </div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- ================= 결과 ================= -->
+        <aside>
+          <div class="result">
+            <div class="result__label">연간 손실 금액</div>
+            <div class="result__big" id="rl-money">—<small>원</small></div>
+            <div class="result__verdict"><span class="badge" id="rl-badge">입력을 확인해 주세요</span></div>
+
+            <div class="result__rows">
+              <div class="result__row">
+                <span class="result__key">저하율</span>
+                <span class="result__val" id="rl-rate">—</span>
+              </div>
+              <div class="result__row">
+                <span class="result__key">연간 손실 발전량</span>
+                <span class="result__val result__val--accent" id="rl-kwh">—</span>
+              </div>
+              <div class="result__row">
+                <span class="result__key">적용 단가</span>
+                <span class="result__val" id="rl-price">—</span>
+              </div>
+              <div class="result__row">
+                <span class="result__key">월평균 손실 금액</span>
+                <span class="result__val" id="rl-month">—</span>
+              </div>
+              <div class="result__row">
+                <span class="result__key">조치비용 회수기간</span>
+                <span class="result__val" id="rl-payback">—</span>
+              </div>
+              <div class="result__row">
+                <span class="result__key">방치 시 3년 누적 손실</span>
+                <span class="result__val" id="rl-3y">—</span>
+              </div>
+            </div>
+
+            <p class="result__hint" id="rl-hint">
+              손실 금액 = 손실 발전량 × 적용 단가
+            </p>
+
+            <button class="btn btn--accent btn--block" type="button" id="rl-copy" style="margin-top:20px">결과 요약 복사</button>
+          </div>
+
+          <div class="contact-card" style="margin-top:20px">
+            <h2 class="h3" style="margin-bottom:14px">저하율 읽는 법</h2>
+            <div style="margin-top:4px">
+              <div class="contact-row"><div class="contact-row__key" style="width:86px">3% 미만</div><div class="contact-row__val">정상 — 경년 열화 수준</div></div>
+              <div class="contact-row"><div class="contact-row__key" style="width:86px">3 ~ 7%</div><div class="contact-row__val">경미 — 오염·음영 의심</div></div>
+              <div class="contact-row"><div class="contact-row__key" style="width:86px">7 ~ 15%</div><div class="contact-row__val">저하 — 원인 확인 권장</div></div>
+              <div class="contact-row"><div class="contact-row__key" style="width:86px">15% 이상</div><div class="contact-row__val">심각 — 계통 이상 의심</div></div>
+            </div>
+            <p class="xsmall muted" style="margin-top:14px; line-height:1.8">
+              결정질 실리콘 모듈의 정상 열화율은 대략 연 0.5 ~ 0.8% 수준으로 봅니다.
+              준공 후 경과 연수를 곱한 값보다 저하율이 크게 높으면 별도 원인이 있다는 뜻입니다.
+            </p>
+          </div>
+        </aside>
+
+      </div>
+
+      <div class="notice reveal" style="margin-top:40px">
+        <strong>이 계산은 간이 추정입니다.</strong>
+        SMP는 시기에 따라 변동하고, REC 가중치는 설치 유형·용량·계약 시점에 따라 다릅니다.
+        기본값은 예시일 뿐이므로 반드시 본인 계약 조건으로 바꿔 넣으세요.
+        또한 저하율은 <strong>같은 계절끼리 비교</strong>해야 의미가 있습니다 (겨울과 여름을 비교하면 왜곡됩니다).
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <div>
+        <h2 class="cta-band__title">손실 금액이 진단 비용보다<br>크다면, 미룰 이유가 없습니다.</h2>
+        <p class="cta-band__desc">결과 화면을 캡처해 보내주시면 어떤 원인이 의심되는지 1차 소견을 드립니다.</p>
+      </div>
+      <div class="cta-band__actions">
+        <a class="btn btn--accent btn--lg" href="../contact.html">진단 문의하기</a>
+        <a class="btn btn--ghost-light btn--lg" href="./pr-calculator.html">PR 계산기</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+          <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+            <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+              <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+              <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+              <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+            </g>
+            <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+            <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+            <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+              <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+              <line x1="30.33" y1="29" x2="32" y2="42"/>
+            </g>
+          </svg>
+          <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+        </a>
+        <p class="footer__info">
+          <span data-site-bizline>솔라케어 · 대표 ○○○ · 사업자등록번호 000-00-00000</span><br>
+          <span data-site="address">○○도 ○○시 ○○로 000</span><br>
+          <span data-site="hours">평일 09:00 – 18:00 (긴급 출동은 상시 문의)</span>
+        </p>
+      </div>
+      <div>
+        <div class="footer__col-title">Service</div>
+        <ul class="footer__list">
+          <li><a href="../services/index.html#diagnosis">발전저하 원인진단</a></li>
+          <li><a href="../services/index.html#om">정기점검 · O&amp;M</a></li>
+          <li><a href="../services/index.html#emergency">긴급출동 · 고장복구</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Resource</div>
+        <ul class="footer__list">
+          <li><a href="../cases/index.html">진단 사례</a></li>
+          <li><a href="./pr-calculator.html">PR 계산기</a></li>
+          <li><a href="./loss-calculator.html">발전손실 환산기</a></li>
+          <li><a href="../index.html#causes">발전저하 요인</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Contact</div>
+        <ul class="footer__list">
+          <li><a data-site-href="telHref" href="tel:00000000000"><span data-site="tel">000-0000-0000</span></a></li>
+          <li><a data-site-mailto href="mailto:contact@example.com"><span data-site="email">contact@example.com</span></a></li>
+          <li><a href="../about.html">회사소개</a></li>
+          <li><a href="../contact.html">진단 문의하기</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span data-site-year>2026</span> 솔라케어. All rights reserved.</span>
+      <span>본 사이트는 고객사의 발전 데이터를 저장하거나 게시하지 않습니다.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="mobile-bar">
+  <a class="btn btn--outline" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+</div>
+
+<script src="../assets/js/site.js" defer></script>
+
+<!-- ==========================================================================
+     발전손실 환산 로직
+     연간 정상 발전량 = 설비용량 × 정상 발전시간 × 365   (발전시간 방식)
+     저하율          = (정상 - 현재) ÷ 정상 × 100
+     적용 단가        = SMP + REC단가 × 가중치 ÷ 1000     (1 REC = 1 MWh)
+     연간 손실 금액   = 연간 손실 발전량 × 적용 단가
+     회수기간(개월)   = 조치비용 ÷ (연간 손실 금액 ÷ 12)
+     ========================================================================== -->
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var form = $('loss-form');
+  var DAYS_PER_YEAR = 365;
+
+  var out = {
+    money: $('rl-money'), badge: $('rl-badge'), rate: $('rl-rate'), kwh: $('rl-kwh'),
+    price: $('rl-price'), month: $('rl-month'), payback: $('rl-payback'),
+    y3: $('rl-3y'), hint: $('rl-hint')
+  };
+
+  function num(id) {
+    var v = parseFloat($(id).value);
+    return isFinite(v) ? v : NaN;
+  }
+
+  function fmt(v, digits) {
+    if (!isFinite(v)) return '—';
+    return v.toLocaleString('ko-KR', {
+      minimumFractionDigits: digits, maximumFractionDigits: digits
+    });
+  }
+
+  function setBadge(cls, text) {
+    out.badge.className = 'badge' + (cls ? ' badge--' + cls : '');
+    out.badge.textContent = text;
+  }
+
+  function verdict(rate) {
+    if (rate < 3)  return ['ok',   '정상 — 경년 열화 수준'];
+    if (rate < 7)  return ['fair', '경미 — 오염·음영 의심'];
+    if (rate < 15) return ['warn', '저하 — 원인 확인 권장'];
+    return            ['bad',  '심각 — 계통 이상 의심'];
+  }
+
+  function pick(name) {
+    var el = form.querySelector('input[name="' + name + '"]:checked');
+    return el ? el.value : null;
+  }
+
+  function blank(msg) {
+    out.money.innerHTML = '—<small>원</small>';
+    setBadge('', '입력을 확인해 주세요');
+    ['rate', 'kwh', 'price', 'month', 'payback', 'y3'].forEach(function (k) { out[k].textContent = '—'; });
+    out.hint.textContent = msg;
+    return null;
+  }
+
+  function calc() {
+    var byHours = pick('mode') === 'hours';
+    var bySmpRec = pick('priceMode') === 'smprec';
+
+    $('mode-hours').hidden   = !byHours;
+    $('mode-annual').hidden  = byHours;
+    $('price-smprec').hidden = !bySmpRec;
+    $('price-fixed').hidden  = bySmpRec;
+
+    // --- 발전량 ---
+    var eNorm, eNow;
+    if (byHours) {
+      var cap = num('l-cap'), hNorm = num('l-hnorm'), hNow = num('l-hnow');
+      if (!(cap > 0) || !(hNorm > 0) || !(hNow >= 0)) {
+        return blank('설비용량과 정상/현재 발전시간을 입력하세요.');
+      }
+      eNorm = cap * hNorm * DAYS_PER_YEAR;
+      eNow  = cap * hNow  * DAYS_PER_YEAR;
+    } else {
+      eNorm = num('l-enorm');
+      eNow  = num('l-enow');
+      if (!(eNorm > 0) || !(eNow >= 0)) {
+        return blank('정상 발전량과 현재 발전량을 입력하세요.');
+      }
+    }
+
+    // --- 단가 ---
+    var price;
+    if (bySmpRec) {
+      var smp = num('l-smp'), rec = num('l-rec'), w = num('l-weight');
+      if (!(smp >= 0) || !(rec >= 0) || !(w >= 0)) {
+        return blank('SMP · REC 단가 · 가중치를 입력하세요.');
+      }
+      price = smp + rec * w / 1000;   // 1 REC = 1 MWh = 1,000 kWh
+    } else {
+      price = num('l-fixed');
+      if (!(price >= 0)) return blank('합산 판매 단가를 입력하세요.');
+    }
+
+    // --- 산출 ---
+    var lossKwh = eNorm - eNow;
+    var rate = lossKwh / eNorm * 100;
+    var lossMoney = lossKwh * price;
+
+    out.rate.textContent  = fmt(rate, 1) + ' %';
+    out.price.textContent = fmt(price, 1) + ' 원/kWh';
+
+    // 0.5 kWh 미만은 손실 없음으로 처리 — 부동소수점 오차가 '-0 kWh' 로 표시되는 것을 막습니다
+    if (lossKwh < 0.5) {
+      out.money.innerHTML = '0<small>원</small>';
+      setBadge('ok', lossKwh < -0.5 ? '정상 — 기준보다 높음' : '정상 — 저하 없음');
+      out.kwh.textContent     = lossKwh < -0.5 ? '+' + fmt(-lossKwh, 0) + ' kWh' : '0 kWh';
+      out.month.textContent   = '0 원';
+      out.payback.textContent = '해당 없음';
+      out.y3.textContent      = '0 원';
+      out.hint.textContent    = '현재 발전량이 정상 기준 이상입니다. 저하로 볼 근거가 없습니다.';
+      return { rate: rate, lossKwh: lossKwh, price: price, lossMoney: 0, eNorm: eNorm, eNow: eNow };
+    }
+
+    out.money.innerHTML = fmt(lossMoney, 0) + '<small>원</small>';
+    out.kwh.textContent   = '-' + fmt(lossKwh, 0) + ' kWh';
+    out.month.textContent = fmt(lossMoney / 12, 0) + ' 원';
+    out.y3.textContent    = fmt(lossMoney * 3, 0) + ' 원';
+
+    var v = verdict(rate);
+    setBadge(v[0], v[1]);
+
+    // --- 회수기간 ---
+    var cost = num('l-cost');
+    if (isFinite(cost) && cost > 0 && lossMoney > 0) {
+      var months = cost / (lossMoney / 12);
+      out.payback.textContent = months < 1
+        ? '1개월 미만'
+        : (months >= 24 ? fmt(months / 12, 1) + ' 년' : fmt(months, 1) + ' 개월');
+    } else {
+      out.payback.textContent = cost === 0 ? '비용 없음' : '—';
+    }
+
+    out.hint.textContent = '연간 손실 ' + fmt(lossKwh, 0) + ' kWh × ' + fmt(price, 1) + ' 원/kWh';
+
+    return { rate: rate, lossKwh: lossKwh, price: price, lossMoney: lossMoney, eNorm: eNorm, eNow: eNow };
+  }
+
+  form.addEventListener('input', calc);
+  form.addEventListener('change', calc);
+  form.addEventListener('submit', function (e) { e.preventDefault(); calc(); });
+
+  $('rl-copy').addEventListener('click', function () {
+    var r = calc();
+    var btn = this;
+    if (!r) { btn.textContent = '입력을 먼저 완성해 주세요'; return; }
+
+    var text = [
+      '[솔라케어 발전손실 환산 결과]',
+      '정상 기준 연간 발전량: ' + fmt(r.eNorm, 0) + ' kWh',
+      '현재 연간 발전량: ' + fmt(r.eNow, 0) + ' kWh',
+      '저하율: ' + fmt(r.rate, 1) + ' %',
+      '연간 손실 발전량: ' + fmt(r.lossKwh, 0) + ' kWh',
+      '적용 단가: ' + fmt(r.price, 1) + ' 원/kWh',
+      '연간 손실 금액: ' + fmt(r.lossMoney, 0) + ' 원',
+      '판정: ' + out.badge.textContent
+    ].join('\n');
+
+    function done(msg) {
+      btn.textContent = msg;
+      setTimeout(function () { btn.textContent = '결과 요약 복사'; }, 2000);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done('복사되었습니다'); }, fallback);
+    } else {
+      fallback();
+    }
+
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      ta.remove();
+      done(ok ? '복사되었습니다' : '복사 실패 — 직접 선택해 주세요');
+    }
+  });
+
+  calc();
+})();
+</script>
+</body>
+</html>

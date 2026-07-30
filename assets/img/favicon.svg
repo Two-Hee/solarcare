@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="솔라케어">
+  <title>솔라케어</title>
+  <!-- 작은 크기에서도 식별되도록 타일형으로 단순화한 버전 -->
+  <rect width="64" height="64" rx="14" fill="#0B2A4A"/>
+  <circle cx="32" cy="24" r="11" fill="#FF9E1B"/>
+  <path d="M13 52 L19 37 H45 L51 52 Z" fill="#FFFFFF"/>
+  <g stroke="#0B2A4A" stroke-width="2">
+    <line x1="16" y1="44.5" x2="48" y2="44.5"/>
+    <line x1="27.7" y1="37" x2="25.7" y2="52"/>
+    <line x1="36.3" y1="37" x2="38.3" y2="52"/>
+  </g>
+</svg>

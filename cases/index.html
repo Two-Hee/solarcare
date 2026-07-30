@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko" data-root="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진단 사례 | 태양광 발전저하 원인과 회복 실적 — 솔라케어</title>
+<meta name="description" content="태양광 발전저하 진단 사례. 증상부터 데이터 분석, 현장 확인, 조치, 회복된 발전량까지 숫자로 기록합니다. 음영·오염·모듈 열화·결선 불량·인버터 이상 등 원인별로 정리했습니다.">
+<link rel="canonical" href="https://two-hee.github.io/solarcare/cases/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="솔라케어">
+<meta property="og:title" content="진단 사례 | 솔라케어">
+<meta property="og:description" content="증상 → 데이터 → 현장 → 조치 → 회복량. 발전저하 진단 기록.">
+<meta property="og:url" content="https://two-hee.github.io/solarcare/cases/">
+<meta name="theme-color" content="#0B2A4A">
+
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/tokens.css">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+
+<body data-page="cases">
+<a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+      <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+          <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+          <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+          <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+        </g>
+        <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+        <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+        <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+          <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+          <line x1="30.33" y1="29" x2="32" y2="42"/>
+        </g>
+      </svg>
+      <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+    </a>
+
+    <nav class="nav" aria-label="주요 메뉴">
+      <div class="nav__item">
+        <a class="nav__link" data-nav="services" href="../services/index.html">서비스
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="../services/index.html#diagnosis">발전저하 원인진단<span class="subnav__note">데이터 분석 + 현장 정밀진단</span></a>
+          <a href="../services/index.html#om">정기점검 · O&amp;M<span class="subnav__note">상시 감시 · 예방정비</span></a>
+          <a href="../services/index.html#emergency">긴급출동 · 고장복구<span class="subnav__note">발전 정지 시 즉시 대응</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="cases" href="./index.html">진단 사례</a></div>
+      <div class="nav__item">
+        <a class="nav__link" data-nav="tools" href="../tools/index.html">진단 도구
+          <svg class="nav__caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <div class="subnav">
+          <a href="../tools/pr-calculator.html">PR 계산기<span class="subnav__note">발전효율 산출 · 정상 여부 판정</span></a>
+          <a href="../tools/loss-calculator.html">발전손실 환산기<span class="subnav__note">손실 kWh → 금액 · 회수기간</span></a>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" data-nav="about" href="../about.html">회사소개</a></div>
+    </nav>
+
+    <div class="header__actions">
+      <a class="header__tel" data-site-href="telHref" href="tel:00000000000">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/>
+        </svg>
+        <span data-site="tel">000-0000-0000</span>
+      </a>
+      <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+      <button class="hamburger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="메뉴 열기"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <span class="drawer__group-title">서비스</span>
+  <div class="drawer__sub">
+    <a href="../services/index.html#diagnosis">발전저하 원인진단</a>
+    <a href="../services/index.html#om">정기점검 · O&amp;M</a>
+    <a href="../services/index.html#emergency">긴급출동 · 고장복구</a>
+  </div>
+  <a class="drawer__link" href="./index.html">진단 사례</a>
+  <span class="drawer__group-title">진단 도구</span>
+  <div class="drawer__sub">
+    <a href="../tools/pr-calculator.html">PR 계산기</a>
+    <a href="../tools/loss-calculator.html">발전손실 환산기</a>
+  </div>
+  <a class="drawer__link" href="../about.html">회사소개</a>
+  <a class="drawer__link" href="../contact.html">진단 문의</a>
+  <div class="drawer__cta">
+    <a class="btn btn--primary btn--block btn--lg" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  </div>
+</div>
+
+<main id="main">
+
+  <section class="page-head">
+    <div class="container">
+      <nav class="crumb" aria-label="위치"><a href="../index.html">홈</a><span>/</span><span>진단 사례</span></nav>
+      <span class="eyebrow">CASE STUDY</span>
+      <h1 class="h1">진단 사례</h1>
+      <p class="lead page-head__desc">
+        발전저하는 원인이 다르면 조치도 완전히 달라집니다. 실제로 어떻게 원인을 찾아냈고
+        조치 후 발전량이 얼마나 회복되었는지를 <strong>숫자로</strong> 기록합니다.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+
+      <!-- 원인별 필터 -->
+      <div class="chips reveal" role="group" aria-label="원인별 필터" id="case-filter">
+        <button class="chip" type="button" data-filter="all" aria-pressed="true">전체</button>
+        <button class="chip" type="button" data-filter="음영" aria-pressed="false">음영</button>
+        <button class="chip" type="button" data-filter="오염" aria-pressed="false">오염</button>
+        <button class="chip" type="button" data-filter="모듈" aria-pressed="false">모듈</button>
+        <button class="chip" type="button" data-filter="결선" aria-pressed="false">결선</button>
+        <button class="chip" type="button" data-filter="인버터" aria-pressed="false">인버터</button>
+        <button class="chip" type="button" data-filter="계통" aria-pressed="false">계통</button>
+      </div>
+
+      <p class="small muted" style="margin-top:16px" id="case-count"></p>
+
+      <!-- ==================================================================
+           사례 목록
+           ★ 새 사례를 추가할 때: 아래 <article> 하나를 복사해 수정하세요.
+             - data-cause 에 원인 태그를 넣으면 위 필터에 자동으로 걸립니다
+               (여러 개면 공백으로 구분: data-cause="음영 모듈")
+             - 링크 대상 HTML 은 sample-shading-loss.html 을 복사해 만드세요
+           ★ 아래 3건은 형식을 보여주기 위한 예시입니다. 실제 사례로 교체하세요.
+           ================================================================== -->
+      <div class="grid grid--3" id="case-list" style="margin-top:28px">
+
+        <article class="case-card reveal" data-cause="음영">
+          <div class="case-card__thumb">예시 · SAMPLE</div>
+          <div class="case-card__body">
+            <div class="case-card__tags">
+              <span class="case-card__tag">예시</span>
+              <span class="case-card__tag">음영</span>
+              <span class="case-card__tag">나대지</span>
+            </div>
+            <h2 class="case-card__title">
+              <a class="case-card__link" href="./sample-shading-loss.html">준공 5년 뒤 나타난 그림자 — 수목 성장에 의한 오후 발전 급감</a>
+            </h2>
+            <p class="case-card__desc">
+              오전은 정상인데 오후 2시 이후 출력이 계단식으로 떨어지던 사례.
+              남서측 수목이 자라 특정 스트링을 가리고 있었습니다.
+            </p>
+            <div class="case-card__foot">
+              <span class="case-card__gain">회복 +9.4%</span>
+              <span class="case-card__meta">99.9kWp · 나대지</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="case-card reveal" data-cause="결선">
+          <div class="case-card__thumb">예시 · SAMPLE</div>
+          <div class="case-card__body">
+            <div class="case-card__tags">
+              <span class="case-card__tag">예시</span>
+              <span class="case-card__tag">결선</span>
+              <span class="case-card__tag">건물 옥상</span>
+            </div>
+            <h2 class="case-card__title">
+              <a class="case-card__link" href="./sample-shading-loss.html">조용히 죽어 있던 스트링 2계통 — 접속함 퓨즈 단선</a>
+            </h2>
+            <p class="case-card__desc">
+              전체 발전량으로는 눈에 띄지 않던 손실. 스트링별 전류를 측정해
+              무전류 계통 2개를 찾아냈고 발열 흔적도 함께 확인했습니다.
+            </p>
+            <div class="case-card__foot">
+              <span class="case-card__gain">회복 +6.1%</span>
+              <span class="case-card__meta">250kWp · 건물 옥상</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="case-card reveal" data-cause="오염">
+          <div class="case-card__thumb">예시 · SAMPLE</div>
+          <div class="case-card__body">
+            <div class="case-card__tags">
+              <span class="case-card__tag">예시</span>
+              <span class="case-card__tag">오염</span>
+              <span class="case-card__tag">축사</span>
+            </div>
+            <h2 class="case-card__title">
+              <a class="case-card__link" href="./sample-shading-loss.html">축사 분진이 만든 완만한 저하 — 세척 시점을 비용으로 판단하기</a>
+            </h2>
+            <p class="case-card__desc">
+              고장은 없는데 PR이 해마다 낮아지던 사례. 오염 누적 속도를 측정해
+              연 몇 회 세척이 이득인지 계산했습니다.
+            </p>
+            <div class="case-card__foot">
+              <span class="case-card__gain">회복 +4.8%</span>
+              <span class="case-card__meta">180kWp · 축사</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- 필터 결과 없음 -->
+      <div class="empty" id="case-empty" style="margin-top:28px" hidden>
+        <h2 class="h3">해당 원인의 사례가 아직 없습니다.</h2>
+        <p class="lead small" style="margin-top:12px">
+          해당 유형으로 겪고 계신 문제가 있다면 문의해 주세요. 진단 후 사례로 정리해 공개합니다.
+        </p>
+        <a class="btn btn--primary" href="../contact.html" style="margin-top:24px">진단 문의하기</a>
+      </div>
+
+      <div class="notice reveal" style="margin-top:40px">
+        <strong>현재 게시된 3건은 형식을 보여주기 위한 예시입니다.</strong>
+        실제 진단 사례로 순차 교체할 예정입니다. 고객사명과 발전소 위치는 사전 동의를 받은 범위에서만
+        표기하며, 기본적으로 <em>“○○시 480kWp 지붕형”</em> 처럼 익명 처리합니다.
+      </div>
+
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <div>
+        <h2 class="cta-band__title">비슷한 증상을<br>겪고 계신가요?</h2>
+        <p class="cta-band__desc">발전량 자료만 보내주시면 어떤 유형에 가까운지 1차 소견을 드립니다.</p>
+      </div>
+      <div class="cta-band__actions">
+        <a class="btn btn--accent btn--lg" href="../contact.html">진단 문의하기</a>
+        <a class="btn btn--ghost-light btn--lg" href="../tools/pr-calculator.html">PR 먼저 계산해보기</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <a class="logo" href="../index.html" aria-label="솔라케어 홈">
+          <svg class="logo__mark" viewBox="0 0 48 48" aria-hidden="true">
+            <g stroke="#FF9E1B" stroke-width="2.4" stroke-linecap="round">
+              <line x1="24" y1="5.5" x2="24" y2="2.5"/><line x1="15.96" y1="9.25" x2="13.66" y2="7.32"/>
+              <line x1="32.04" y1="9.25" x2="34.34" y2="7.32"/><line x1="13.5" y1="16" x2="10.5" y2="16"/>
+              <line x1="34.5" y1="16" x2="37.5" y2="16"/>
+            </g>
+            <circle cx="24" cy="16" r="8" fill="#FF9E1B"/>
+            <path d="M10 42 L15 29 H38 L43 42 Z" fill="#0B2A4A"/>
+            <g stroke="#fff" stroke-opacity="0.38" stroke-width="1.4">
+              <line x1="12.6" y1="35.5" x2="40.4" y2="35.5"/><line x1="22.67" y1="29" x2="21" y2="42"/>
+              <line x1="30.33" y1="29" x2="32" y2="42"/>
+            </g>
+          </svg>
+          <span class="logo__text"><span class="logo__name">솔라케어</span><span class="logo__sub">SolarCare</span></span>
+        </a>
+        <p class="footer__info">
+          <span data-site-bizline>솔라케어 · 대표 ○○○ · 사업자등록번호 000-00-00000</span><br>
+          <span data-site="address">○○도 ○○시 ○○로 000</span><br>
+          <span data-site="hours">평일 09:00 – 18:00 (긴급 출동은 상시 문의)</span>
+        </p>
+      </div>
+      <div>
+        <div class="footer__col-title">Service</div>
+        <ul class="footer__list">
+          <li><a href="../services/index.html#diagnosis">발전저하 원인진단</a></li>
+          <li><a href="../services/index.html#om">정기점검 · O&amp;M</a></li>
+          <li><a href="../services/index.html#emergency">긴급출동 · 고장복구</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Resource</div>
+        <ul class="footer__list">
+          <li><a href="./index.html">진단 사례</a></li>
+          <li><a href="../tools/pr-calculator.html">PR 계산기</a></li>
+          <li><a href="../tools/loss-calculator.html">발전손실 환산기</a></li>
+          <li><a href="../index.html#causes">발전저하 요인</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer__col-title">Contact</div>
+        <ul class="footer__list">
+          <li><a data-site-href="telHref" href="tel:00000000000"><span data-site="tel">000-0000-0000</span></a></li>
+          <li><a data-site-mailto href="mailto:contact@example.com"><span data-site="email">contact@example.com</span></a></li>
+          <li><a href="../about.html">회사소개</a></li>
+          <li><a href="../contact.html">진단 문의하기</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span data-site-year>2026</span> 솔라케어. All rights reserved.</span>
+      <span>본 사이트는 고객사의 발전 데이터를 저장하거나 게시하지 않습니다.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="mobile-bar">
+  <a class="btn btn--outline" data-site-href="telHref" href="tel:00000000000">전화 상담</a>
+  <a class="btn btn--primary" href="../contact.html">진단 문의</a>
+</div>
+
+<script src="../assets/js/site.js" defer></script>
+
+<!-- 원인별 필터 -->
+<script>
+(function () {
+  'use strict';
+
+  var filterBox = document.getElementById('case-filter');
+  var cards = [].slice.call(document.querySelectorAll('#case-list .case-card'));
+  var empty = document.getElementById('case-empty');
+  var count = document.getElementById('case-count');
+
+  function apply(key) {
+    var shown = 0;
+    cards.forEach(function (card) {
+      var causes = (card.getAttribute('data-cause') || '').split(/\s+/);
+      var match = key === 'all' || causes.indexOf(key) !== -1;
+      card.hidden = !match;
+      if (match) shown++;
+    });
+    empty.hidden = shown > 0;
+    count.textContent = key === 'all'
+      ? '전체 ' + shown + '건'
+      : key + ' 관련 ' + shown + '건';
+  }
+
+  filterBox.addEventListener('click', function (e) {
+    var btn = e.target.closest('.chip');
+    if (!btn) return;
+    filterBox.querySelectorAll('.chip').forEach(function (c) {
+      c.setAttribute('aria-pressed', String(c === btn));
+    });
+    apply(btn.getAttribute('data-filter'));
+  });
+
+  apply('all');
+})();
+</script>
+</body>
+</html>
