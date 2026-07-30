@@ -97,16 +97,19 @@ select:focus-visible {
 .section-head .lead { margin-top: 16px; }
 .section-head--center { margin-inline: auto; text-align: center; }
 
+/* 열 정의에 minmax(0, 1fr) 을 씁니다.
+   그냥 1fr 은 minmax(auto, 1fr) 이라 자식의 min-content 가 열을 밀어내
+   좁은 화면에서 가로 스크롤이 생깁니다. */
 .grid { display: grid; gap: clamp(16px, 2vw, 24px); }
-.grid--2 { grid-template-columns: repeat(2, 1fr); }
-.grid--3 { grid-template-columns: repeat(3, 1fr); }
-.grid--4 { grid-template-columns: repeat(4, 1fr); }
+.grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 @media (max-width: 900px) {
-  .grid--3, .grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .grid--3, .grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .grid--2, .grid--3, .grid--4 { grid-template-columns: 1fr; }
+  .grid--2, .grid--3, .grid--4 { grid-template-columns: minmax(0, 1fr); }
 }
 
 .stack > * + * { margin-top: 16px; }

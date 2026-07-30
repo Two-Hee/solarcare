@@ -201,6 +201,15 @@
   .hamburger { display: inline-flex; }
 }
 
+/* 초협폭(320~380px) 대응.
+   로고 + "진단 문의" 버튼 + 햄버거가 한 줄에 안 들어가 가로 스크롤이 생깁니다.
+   하단 고정바(.mobile-bar)에 전화·문의 버튼이 이미 있으므로 헤더 버튼만 숨깁니다. */
+@media (max-width: 380px) {
+  .site-header .header__actions .btn { display: none; }
+  .logo__mark { width: 30px; height: 30px; }
+  .logo__name { font-size: 1.0625rem; }
+}
+
 /* ==========================================================================
    히어로
    ========================================================================== */
@@ -515,7 +524,7 @@
   gap: clamp(32px, 4vw, 56px);
 }
 @media (max-width: 960px) {
-  .contact-layout { grid-template-columns: 1fr; }
+  .contact-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* 정의 목록 (점검 항목 등) */
@@ -534,7 +543,9 @@
   gap: clamp(28px, 3.5vw, 48px);
   align-items: start;
 }
-@media (max-width: 1000px) { .calc { grid-template-columns: 1fr; } }
+/* 1fr(=minmax(auto,1fr))로 두면 자식의 min-content 가 열을 밀어내
+   좁은 화면에서 가로 스크롤이 생깁니다. 반드시 minmax(0,1fr) 로 둡니다. */
+@media (max-width: 1000px) { .calc { grid-template-columns: minmax(0, 1fr); } }
 
 .calc__group + .calc__group { margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--line); }
 .calc__group-title { font-size: var(--fs-body); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
