@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>태양광 발전량 분석 260731</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#ffffff; --ink:#172033; --muted:#657089;
+    --line:#dfe5ef; --primary:#1769e0; --primary-2:#7fb0f5;
+    --accent:#0f9d7a; --warn:#b66a00; --danger:#c33a3a;
+    --shadow:0 12px 30px rgba(28,46,84,.08); --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Noto Sans KR","Malgun Gothic",sans-serif;line-height:1.55}
+  button,input,select{font:inherit}
+  .app{max-width:1440px;margin:0 auto;padding:24px}
+  .hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:26px 28px;border-radius:24px;background:linear-gradient(135deg,#0e315f,#1769e0 58%,#3d8cf2);color:#fff;box-shadow:var(--shadow)}
+  .hero h1{margin:0 0 6px;font-size:clamp(25px,3vw,38px);letter-spacing:-.04em}
+  .hero p{margin:0;opacity:.88}
+  .hero-badge{white-space:nowrap;padding:8px 12px;border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.11);border-radius:999px;font-size:13px}
+  .layout{display:grid;grid-template-columns:370px minmax(0,1fr);gap:20px;margin-top:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .controls{padding:22px;align-self:start;position:sticky;top:12px}
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px;font-size:17px;letter-spacing:-.02em}
+  .section-title small{font-size:12px;color:var(--muted);font-weight:400}
+  .group{padding:16px 0;border-top:1px solid var(--line)}
+  .group:first-of-type{border-top:0;padding-top:0}
+  .field{margin-top:12px}
+  .field:first-child{margin-top:0}
+  label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px;font-weight:700}
+  label span{font-weight:400;color:var(--muted)}
+  input,select{width:100%;height:42px;border:1px solid #cfd7e6;border-radius:10px;background:#fff;padding:0 11px;color:var(--ink);outline:none}
+  input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(23,105,224,.12)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mode{display:grid;grid-template-columns:1fr 1fr;background:#eef2f8;padding:4px;border-radius:11px;margin-bottom:12px}
+  .mode button{height:36px;border:0;background:transparent;border-radius:8px;color:var(--muted);font-weight:700;cursor:pointer}
+  .mode button.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px rgba(35,55,90,.10)}
+  .loss-grid{display:grid;grid-template-columns:1fr 84px;gap:8px 10px;align-items:center}
+  .loss-grid label{margin:0;font-weight:500}
+  .loss-grid input{height:36px;text-align:right}
+  .computed-pr{margin-top:12px;padding:12px;border-radius:11px;background:#eef8f5;color:#087357;display:flex;justify-content:space-between;font-weight:700}
+  .hint{margin:8px 0 0;font-size:12px;color:var(--muted)}
+  .actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .actions button{flex:1 1 130px;height:40px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:700}
+  .actions button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .content{display:grid;gap:20px}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .kpi{padding:18px}
+  .kpi .name{font-size:12px;color:var(--muted);font-weight:700}
+  .kpi .value{font-size:25px;font-weight:800;letter-spacing:-.04em;margin-top:5px}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .kpi.primary{border-color:#bdd4f5;background:linear-gradient(180deg,#fff,#f4f8ff)}
+  .kpi.green{border-color:#bce6da;background:linear-gradient(180deg,#fff,#f1fbf8)}
+  .block{padding:22px}
+  .block-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:15px}
+  .block-head h2{margin:0;font-size:19px;letter-spacing:-.03em}
+  .block-head p{margin:3px 0 0;color:var(--muted);font-size:12px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .legend .theory:before{background:var(--primary-2)}
+  .legend .expected:before{background:var(--primary)}
+  #chart{width:100%;min-height:330px;display:block;overflow:visible}
+  .chart-wrap{overflow-x:auto}
+  .chart-tooltip{position:fixed;pointer-events:none;display:none;z-index:20;background:#172033;color:#fff;padding:7px 9px;border-radius:8px;font-size:12px;box-shadow:0 5px 15px rgba(0,0,0,.18)}
+  .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:13px}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:900px;font-size:13px}
+  th,td{padding:10px 11px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th{position:sticky;top:0;background:#f6f8fc;color:#4d5870;font-size:12px;z-index:1}
+  th:first-child,td:first-child{text-align:center}
+  tr:last-child td{border-bottom:0}
+  tfoot td{font-weight:800;background:#f3f7fd}
+  .summary{display:grid;grid-template-columns:1.4fr .6fr;gap:16px}
+  .summary-main{padding:18px;border-radius:14px;background:#f5f8fd;border:1px solid var(--line)}
+  .summary-main h3{margin:0 0 8px;font-size:16px}
+  .summary-main p{margin:0;color:#3f4b62}
+  .summary-list{display:grid;gap:9px}
+  .summary-item{padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fff}
+  .summary-item b{display:block;font-size:12px;color:var(--muted)}
+  .summary-item span{display:block;font-size:17px;font-weight:800;margin-top:2px}
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;font-size:13px;font-weight:700}
+  details ul{margin:9px 0 0;padding-left:18px;color:var(--muted);font-size:12px}
+  .forecast-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .forecast-card{padding:13px;border-radius:12px;border:1px solid var(--line);background:#fafbfd}
+  .forecast-card b{display:block;font-size:12px;color:var(--muted)}
+  .forecast-card span{display:block;font-weight:800;font-size:17px;margin-top:3px}
+  .notice{font-size:12px;color:var(--muted);margin:0}
+  #yearChart{width:100%;min-height:350px;display:block;overflow:visible}
+  .year-table table{min-width:1060px}
+  .formula-note{margin-top:14px;padding:13px 14px;border-radius:12px;background:#f7f9fd;border:1px solid var(--line);font-size:12px;color:#4d5870}
+  .formula-note b{color:var(--ink)}
+  .formula-note code{font-family:Consolas,monospace;background:#edf2f8;padding:2px 5px;border-radius:5px}
+  .error{display:none;margin-top:10px;padding:10px;background:#fff0f0;border:1px solid #f4c7c7;border-radius:9px;color:var(--danger);font-size:12px}
+  @media(max-width:1050px){.layout{grid-template-columns:1fr}.controls{position:static}.kpis{grid-template-columns:1fr 1fr}}
+  @media(max-width:680px){.app{padding:12px}.hero{align-items:flex-start;flex-direction:column;padding:20px}.hero-badge{white-space:normal}.kpis{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.forecast-grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}.block,.controls{padding:16px}}
+  @media print{body{background:#fff}.app{max-width:none;padding:0}.hero{box-shadow:none}.controls,.actions{display:none}.layout{display:block}.content{gap:12px}.panel{box-shadow:none;break-inside:avoid}.kpis{grid-template-columns:repeat(4,1fr)} }
+</style>
+</head>
+<body>
+<div class="app" id="solar-analysis-app">
+  <header class="hero">
+    <div>
+      <h1>태양광 발전량 분석</h1>
+      <p>지역별 10년 평균 일사량과 설계조건을 반영한 월별·연도별 발전량 예측</p>
+    </div>
+    <div class="hero-badge">260731 · 최종본 · 단일 HTML</div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel controls">
+      <h2 class="section-title">입력 조건 <small>값 변경 시 자동 계산</small></h2>
+
+      <section class="group">
+        <div class="field">
+          <label for="region">지역 <span>10년 평균 데이터</span></label>
+          <select id="region"></select>
+        </div>
+        <div class="field">
+          <label for="capacity">설치용량 <span>kW</span></label>
+          <input id="capacity" type="number" min="0.1" step="0.1" value="100">
+        </div>
+        <div class="row field">
+          <div>
+            <label for="tilt">경사각 <span>0~90°</span></label>
+            <input id="tilt" type="number" min="0" max="90" step="1" value="30">
+          </div>
+          <div>
+            <label for="direction">방위</label>
+            <select id="direction">
+              <option value="180">남향</option><option value="135">남동향</option><option value="225">남서향</option>
+              <option value="90">동향</option><option value="270">서향</option><option value="0">북향</option><option value="custom">직접 입력</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="azimuth">방위각 <span>북 0°·동 90°·남 180°·서 270°</span></label>
+          <input id="azimuth" type="number" min="0" max="359.9" step="0.1" value="180">
+        </div>
+      </section>
+
+      <section class="group">
+        <h3 class="section-title">시스템 종합 효율(PR)</h3>
+        <div class="mode">
+          <button id="simpleBtn" class="active" type="button">간편모드</button>
+          <button id="detailBtn" type="button">상세모드</button>
+        </div>
+        <div id="simpleMode">
+          <div class="field">
+            <label for="simplePr">PR 입력 <span>%</span></label>
+            <input id="simplePr" type="number" min="1" max="100" step="0.1" value="80">
+          </div>
+          <p class="hint">인버터·배선·온도·오염·가동률 등 전체 손실을 하나의 값으로 반영합니다.</p>
+        </div>
+        <div id="detailMode" hidden>
+          <div class="loss-grid">
+            <label for="lossTemp">모듈 온도 손실</label><input class="loss" id="lossTemp" type="number" min="0" max="100" step="0.1" value="6.0">
+            <label for="lossSoiling">오염·적설 손실</label><input class="loss" id="lossSoiling" type="number" min="0" max="100" step="0.1" value="2.0">
+            <label for="lossShade">음영 손실</label><input class="loss" id="lossShade" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="lossMismatch">모듈 불일치 손실</label><input class="loss" id="lossMismatch" type="number" min="0" max="100" step="0.1" value="2.0">
+            <label for="lossDc">DC 선로 손실</label><input class="loss" id="lossDc" type="number" min="0" max="100" step="0.1" value="1.5">
+            <label for="lossInverter">인버터 손실</label><input class="loss" id="lossInverter" type="number" min="0" max="100" step="0.1" value="3.0">
+            <label for="lossAc">AC·변압기 손실</label><input class="loss" id="lossAc" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="lossAvailability">비가동 손실</label><input class="loss" id="lossAvailability" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="lossOther">기타 손실</label><input class="loss" id="lossOther" type="number" min="0" max="100" step="0.1" value="1.0">
+          </div>
+          <div class="computed-pr"><span>계산 PR</span><span id="detailPrValue">-</span></div>
+          <p class="hint">상세 PR은 각 손실률의 잔존율을 연속 곱하여 계산합니다.</p>
+        </div>
+      </section>
+
+      <section class="group">
+        <h3 class="section-title">모듈 성능저하 <small>PR과 별도 적용</small></h3>
+        <div class="row">
+          <div class="field">
+            <label for="firstYearDeg">1년차 저하율 <span>%</span></label>
+            <input id="firstYearDeg" type="number" min="0" max="10" step="0.01" value="1.50">
+          </div>
+          <div class="field">
+            <label for="laterDeg">2년차 이후 저하율 <span>%/년</span></label>
+            <input id="laterDeg" type="number" min="0" max="5" step="0.01" value="0.33">
+          </div>
+        </div>
+        <div class="field">
+          <label for="analysisYears">분석 종료연차 <span>1~50년</span></label>
+          <input id="analysisYears" type="number" min="1" max="50" step="1" value="25">
+        </div>
+        <p class="hint">선형 보증 방식: N년차 성능계수 = 1 - 1년차 저하율 - (N-1) × 2년차 이후 저하율.</p>
+        <p class="hint">지표반사율 입력은 삭제하고 일반 지표 기준 20%를 경사면 일사량에 고정 반영합니다. 지표반사는 PR 손실항목이 아닙니다.</p>
+      </section>
+
+      <div id="error" class="error"></div>
+      <div class="actions">
+        <button type="button" id="resetBtn">초기화</button>
+        <button type="button" id="csvBtn">CSV 저장</button>
+        <button class="primary" type="button" id="printBtn">인쇄/PDF</button>
+        <button type="button" id="econBtn">경제성분석</button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="kpis">
+        <article class="panel kpi"><div class="name">연간 이론 발전량</div><div class="value" id="annualTheory">-</div><div class="sub">경사·방위 보정, 손실 미적용</div></article>
+        <article class="panel kpi primary"><div class="name">1년차 예상 발전량</div><div class="value" id="annualExpected">-</div><div class="sub" id="expectedSub">PR·1년차 성능저하 적용</div></article>
+        <article class="panel kpi green"><div class="name">이론 등가발전시간</div><div class="value" id="theoryEqHours">-</div><div class="sub">연간 이론발전량 ÷ 용량 ÷ 365일</div></article>
+        <article class="panel kpi"><div class="name">1년차 예상 등가발전시간</div><div class="value" id="expectedEqHours">-</div><div class="sub">1년차 예상발전량 ÷ 용량 ÷ 365일</div></article>
+      </div>
+
+      <article class="panel block">
+        <div class="block-head">
+          <div><h2>월별 발전량 그래프</h2><p>이론 발전량과 PR·1년차 성능저하 적용 예상 발전량 비교</p></div>
+          <div class="legend"><span class="theory">이론</span><span class="expected">예상</span></div>
+        </div>
+        <div class="chart-wrap"><svg id="chart" viewBox="0 0 1000 330" role="img" aria-label="월별 발전량 막대그래프"></svg></div>
+      </article>
+
+      <article class="panel block">
+        <div class="block-head"><div><h2>월별 분석 테이블</h2><p>단위와 계산단계를 분리하여 검토할 수 있습니다.</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>월</th><th>수평면 일사량<br>(kWh/㎡/일)</th><th>경사면 일사량<br>(kWh/㎡/일)</th><th>일사량 보정계수</th><th>이론 발전량<br>(kWh)</th><th>1년차 예상 발전량<br>(kWh)</th><th>이론 등가시간<br>(h/일)</th><th>예상 등가시간<br>(h/일)</th></tr></thead>
+            <tbody id="resultBody"></tbody>
+            <tfoot id="resultFoot"></tfoot>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel block">
+        <div class="block-head">
+          <div><h2>연도별 발전량 그래프</h2><p>입력한 종료연차까지 이론 발전량과 모듈 성능저하가 반영된 예상 발전량을 비교합니다.</p></div>
+          <div class="legend"><span class="theory">이론</span><span class="expected">예상</span></div>
+        </div>
+        <div class="chart-wrap"><svg id="yearChart" viewBox="0 0 1000 350" role="img" aria-label="연도별 발전량 선그래프"></svg></div>
+      </article>
+
+      <article class="panel block">
+        <div class="block-head"><div><h2>연도별 분석 테이블</h2><p>성능계수, 연간 발전량, 일평균 등가발전시간과 누적 예상발전량을 제공합니다.</p></div></div>
+        <div class="table-wrap year-table">
+          <table>
+            <thead><tr><th>연차</th><th>모듈 성능계수</th><th>누적 성능저하율</th><th>이론 발전량<br>(kWh)</th><th>예상 발전량<br>(kWh)</th><th>이론 등가시간<br>(h/일)</th><th>예상 등가시간<br>(h/일)</th><th>누적 예상 발전량<br>(kWh)</th></tr></thead>
+            <tbody id="yearResultBody"></tbody>
+            <tfoot id="yearResultFoot"></tfoot>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel block">
+        <div class="block-head"><div><h2>결론 요약</h2><p>입력 조건과 주요 결과를 문장으로 정리합니다.</p></div></div>
+        <div class="summary">
+          <div class="summary-main"><h3 id="summaryTitle">분석 결과</h3><p id="summaryText">입력값을 확인하고 있습니다.</p></div>
+          <div class="summary-list">
+            <div class="summary-item"><b>최대 발전월</b><span id="bestMonth">-</span></div>
+            <div class="summary-item"><b>적용 PR</b><span id="appliedPr">-</span></div>
+            <div class="summary-item"><b>종료연차 성능계수</b><span id="degradationFactor">-</span></div>
+          </div>
+        </div>
+        <details>
+          <summary>산정 기준 및 해석상 유의사항</summary>
+          <ul>
+            <li>원자료: 첨부 엑셀의 2016~2025년 동일 월 일평균 수평면 일사량 평균.</li>
+            <li>월 대표일의 태양위치로 수평면 외기권 일사량과 경사면/수평면 직달일사 비율 Rb를 계산합니다.</li>
+            <li>월평균 청명지수 Kt = 수평면 일사량 ÷ 외기권 수평면 일사량이며, Erbs 월평균 상관식으로 확산일사 비율을 추정합니다.</li>
+            <li>경사면 일사량 = 직달성분 × Rb + 확산성분 × (1+cosβ)/2 + 지표반사성분입니다. 지표반사율은 일반 지표 0.20을 고정 적용합니다.</li>
+            <li>일사량 보정계수 = 경사면 일사량 ÷ 수평면 일사량입니다.</li>
+            <li>이론 발전량 = 경사면 일사량 × 월 일수 × 설치용량이며, 예상 발전량에는 PR과 모듈 성능계수를 적용합니다.</li>
+            <li>모듈 성능계수는 제조사 선형출력보증 방식으로 1년차 저하율과 2년차 이후 연간 저하율을 구분합니다.</li>
+            <li>실제 사업성 검토에는 현장 음영, 정확한 좌표·시간별 기상, 모듈 온도계수, 인버터 클리핑, 출력제어, 적설·오염, 계통 정전 등을 추가 검토해야 합니다.</li>
+          </ul>
+          <div class="formula-note"><b>계산식 요약</b><br><code>POA = Hb×Rb + Hd×(1+cosβ)/2 + GHI×0.20×(1-cosβ)/2</code><br><code>N년차 예상발전량 = 이론발전량 × PR × [1 - D1 - (N-1)×D2]</code></div>
+        </details>
+      </article>
+
+      <p class="notice">본 결과는 초기 설계·비교 검토용 추정치이며, 금융·보증 목적의 정밀 발전량 보고서를 대체하지 않습니다.</p>
+    </section>
+  </main>
+</div>
+<div class="chart-tooltip" id="tooltip"></div>
+<script>
+const SOLAR_DATA = {"서울경기":[2.342,3.17,4.116,4.98,5.551,5.417,4.446,4.291,3.965,3.268,2.467,2.124],"강원영동":[2.664,3.423,4.109,5.218,5.776,5.615,4.771,4.249,3.634,2.994,2.679,2.352],"강원영서":[2.507,3.349,4.115,5.117,5.66,5.644,4.683,4.391,3.876,3.152,2.576,2.214],"충북":[2.512,3.382,4.263,5.241,5.898,5.798,4.827,4.747,4.013,3.421,2.717,2.25],"충남":[2.402,3.299,4.344,5.247,5.836,5.629,4.704,4.658,4.067,3.46,2.621,2.113],"경북":[2.673,3.449,4.226,5.236,5.831,5.666,4.784,4.743,3.679,3.301,2.774,2.461],"경남":[2.81,3.53,4.183,5.034,5.494,5.352,4.617,4.981,3.667,3.54,2.978,2.677],"전북":[2.486,3.378,4.341,5.238,5.816,5.511,4.696,4.769,4.047,3.527,2.716,2.217],"전남":[2.543,3.3,4.336,5.232,5.73,5.457,4.745,4.961,4.053,3.668,2.862,2.29],"제주":[1.695,2.577,3.97,5.074,5.543,5.131,5.134,5.317,3.695,3.242,2.5,1.585],"전국평균":[2.463,3.286,4.2,5.162,5.714,5.522,4.741,4.711,3.87,3.357,2.689,2.228]};
+const REGION_LAT = {"서울경기":37.45,"강원영동":37.65,"강원영서":37.50,"충북":36.65,"충남":36.50,"경북":36.30,"경남":35.25,"전북":35.75,"전남":34.85,"제주":33.40,"전국평균":36.00};
+const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const MID_DOY = [17,47,75,105,135,162,198,228,258,288,318,344];
+const MONTH_NAMES = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const $ = id => document.getElementById(id);
+const GROUND_ALBEDO = 0.20;
+let prMode = 'simple';
+let lastResults = [];
+let lastYearResults = [];
+
+function rad(v){return v*Math.PI/180}
+function deg(v){return v*180/Math.PI}
+function clamp(v,min,max){return Math.min(max,Math.max(min,v))}
+function num(id){return Number($(id).value)}
+function fmt(v,d=0){return Number(v).toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function fmtEnergy(v){return v>=1000000 ? `${fmt(v/1000000,2)} GWh` : v>=1000 ? `${fmt(v/1000,1)} MWh` : `${fmt(v,0)} kWh`}
+
+function solarGeometry(dayOfYear, latitude, tilt, azimuth){
+  const phi=rad(latitude), beta=rad(tilt), gamma=rad(azimuth);
+  const delta=rad(23.45*Math.sin(rad(360*(284+dayOfYear)/365)));
+  const dr=1+0.033*Math.cos(rad(360*dayOfYear/365));
+  const sunsetAngle=deg(Math.acos(clamp(-Math.tan(phi)*Math.tan(delta),-1,1)));
+  const gsc=1367, step=rad(1);
+  let hor=0, tilted=0;
+  for(let w=-Math.PI+step/2; w<Math.PI; w+=step){
+    const sx=-Math.cos(delta)*Math.sin(w);
+    const sy=Math.cos(phi)*Math.sin(delta)-Math.sin(phi)*Math.cos(delta)*Math.cos(w);
+    const sz=Math.sin(phi)*Math.sin(delta)+Math.cos(phi)*Math.cos(delta)*Math.cos(w);
+    if(sz<=0) continue;
+    const nx=Math.sin(beta)*Math.sin(gamma);
+    const ny=Math.sin(beta)*Math.cos(gamma);
+    const nz=Math.cos(beta);
+    const cosInc=Math.max(0,sx*nx+sy*ny+sz*nz);
+    const dtHours=step*12/Math.PI;
+    hor += gsc*dr*sz*dtHours/1000;
+    tilted += gsc*dr*cosInc*dtHours/1000;
+  }
+  return {h0:hor, rb:hor>0?tilted/hor:0, sunsetAngle};
+}
+
+function monthlyDiffuseFraction(kt, sunsetAngle){
+  const polynomial = k => sunsetAngle<=81.4
+    ? 1.391-3.560*k+4.189*k**2-2.137*k**3
+    : 1.311-3.022*k+3.427*k**2-1.821*k**3;
+  let fd;
+  if(kt<0.30){
+    const fdAt03=polynomial(0.30);
+    fd=1-(1-fdAt03)*(Math.max(0,kt)/0.30);
+  }else if(kt<=0.80){
+    fd=polynomial(kt);
+  }else{
+    fd=0.165;
+  }
+  return clamp(fd,0.05,1);
+}
+
+function transposeIrradiance(ghi, latitude, tilt, azimuth, dayOfYear){
+  const geo=solarGeometry(dayOfYear,latitude,tilt,azimuth);
+  const kt=clamp(ghi/Math.max(geo.h0,0.01),0,1.2);
+  const fd=monthlyDiffuseFraction(kt,geo.sunsetAngle);
+  const hd=ghi*fd, hb=Math.max(0,ghi-hd), beta=rad(tilt);
+  const beam=hb*geo.rb;
+  const diffuse=hd*(1+Math.cos(beta))/2;
+  const reflected=ghi*GROUND_ALBEDO*(1-Math.cos(beta))/2;
+  const poa=Math.max(0,beam+diffuse+reflected);
+  return {poa, factor:ghi>0?poa/ghi:0, kt, diffuseFraction:fd, rb:geo.rb, beam, diffuse, reflected};
+}
+
+function calculatePr(){
+  if(prMode==='simple') return clamp(num('simplePr')/100,0.01,1);
+  let retention=1;
+  document.querySelectorAll('.loss').forEach(el=>{retention*=1-clamp(Number(el.value),0,100)/100});
+  return clamp(retention,0.01,1);
+}
+
+function modulePerformanceFactor(year, firstYearLoss, laterAnnualLoss){
+  return clamp(1-firstYearLoss-laterAnnualLoss*(year-1),0,1);
+}
+
+function validate(){
+  const first=num('firstYearDeg')/100, later=num('laterDeg')/100, years=Math.round(num('analysisYears'));
+  const checks=[
+    [num('capacity')>0,'설치용량은 0보다 커야 합니다.'],
+    [num('tilt')>=0&&num('tilt')<=90,'경사각은 0~90° 범위로 입력하세요.'],
+    [num('azimuth')>=0&&num('azimuth')<360,'방위각은 0° 이상 360° 미만이어야 합니다.'],
+    [num('firstYearDeg')>=0&&num('firstYearDeg')<=10,'1년차 성능저하율은 0~10% 범위로 입력하세요.'],
+    [num('laterDeg')>=0&&num('laterDeg')<=5,'2년차 이후 성능저하율은 0~5% 범위로 입력하세요.'],
+    [years>=1&&years<=50,'분석 종료연차는 1~50년 범위로 입력하세요.'],
+    [modulePerformanceFactor(years,first,later)>0,'분석 종료연차의 모듈 성능계수가 0% 이하입니다. 저하율 또는 연차를 조정하세요.']
+  ];
+  const bad=checks.find(x=>!x[0]);
+  $('error').style.display=bad?'block':'none';
+  $('error').textContent=bad?bad[1]:'';
+  return !bad;
+}
+
+function analyze(){
+  if(!validate()) return;
+  const region=$('region').value, ghi=SOLAR_DATA[region], latitude=REGION_LAT[region];
+  const capacity=num('capacity'), tilt=num('tilt'), azimuth=num('azimuth');
+  const pr=calculatePr(), firstLoss=num('firstYearDeg')/100, laterLoss=num('laterDeg')/100;
+  const analysisYears=Math.round(num('analysisYears'));
+  const firstYearFactor=modulePerformanceFactor(1,firstLoss,laterLoss);
+
+  lastResults=ghi.map((h,i)=>{
+    const t=transposeIrradiance(h,latitude,tilt,azimuth,MID_DOY[i]);
+    const theoretical=t.poa*DAYS[i]*capacity;
+    const expected=theoretical*pr*firstYearFactor;
+    return {
+      month:i+1,ghi:h,poa:t.poa,factor:t.factor,theoretical,expected,
+      theoryEqDay:theoretical/capacity/DAYS[i],expectedEqDay:expected/capacity/DAYS[i],
+      kt:t.kt,diffuseFraction:t.diffuseFraction,rb:t.rb
+    };
+  });
+
+  const annualTheory=lastResults.reduce((s,r)=>s+r.theoretical,0);
+  const annualExpected=lastResults.reduce((s,r)=>s+r.expected,0);
+  const theoryEqDay=annualTheory/capacity/365;
+  const expectedEqDay=annualExpected/capacity/365;
+  let cumulative=0;
+  lastYearResults=Array.from({length:analysisYears},(_,i)=>{
+    const year=i+1;
+    const performanceFactor=modulePerformanceFactor(year,firstLoss,laterLoss);
+    const expected=annualTheory*pr*performanceFactor;
+    cumulative+=expected;
+    return {
+      year,performanceFactor,degradationRate:1-performanceFactor,
+      theoretical:annualTheory,expected,theoryEqDay,expectedEqDay:expected/capacity/365,cumulative
+    };
+  });
+
+  updateKpis(annualTheory,annualExpected,theoryEqDay,expectedEqDay,pr,firstYearFactor);
+  updateTable(lastResults,annualTheory,annualExpected,theoryEqDay,expectedEqDay);
+  drawChart(lastResults);
+  drawYearChart(lastYearResults);
+  updateYearTable(lastYearResults);
+  updateSummary({region,capacity,tilt,azimuth,pr,firstLoss,laterLoss,analysisYears,annualTheory,annualExpected,theoryEqDay,expectedEqDay});
+  saveEconomicLinkData({region,capacity,tilt,azimuth,pr,firstLoss,laterLoss,analysisYears,annualTheory,annualExpected,theoryEqDay,expectedEqDay});
+  $('detailPrValue').textContent=fmt(pr*100,1)+'%';
+}
+
+function updateKpis(theory,expected,theoryEqDay,expectedEqDay,pr,firstYearFactor){
+  $('annualTheory').textContent=fmtEnergy(theory);
+  $('annualExpected').textContent=fmtEnergy(expected);
+  $('theoryEqHours').textContent=fmt(theoryEqDay,2)+' h/일';
+  $('expectedEqHours').textContent=fmt(expectedEqDay,2)+' h/일';
+  $('expectedSub').textContent=`PR ${fmt(pr*100,1)}% · 1년차 모듈 성능계수 ${fmt(firstYearFactor*100,2)}%`;
+}
+
+function updateTable(rows,theory,expected,theoryEqDay,expectedEqDay){
+  $('resultBody').innerHTML=rows.map(r=>`<tr><td>${r.month}월</td><td>${fmt(r.ghi,3)}</td><td>${fmt(r.poa,3)}</td><td>${fmt(r.factor,3)}</td><td>${fmt(r.theoretical,0)}</td><td>${fmt(r.expected,0)}</td><td>${fmt(r.theoryEqDay,2)}</td><td>${fmt(r.expectedEqDay,2)}</td></tr>`).join('');
+  $('resultFoot').innerHTML=`<tr><td>연간/일평균</td><td>-</td><td>-</td><td>-</td><td>${fmt(theory,0)}</td><td>${fmt(expected,0)}</td><td>${fmt(theoryEqDay,2)}</td><td>${fmt(expectedEqDay,2)}</td></tr>`;
+}
+
+function drawChart(rows){
+  const svg=$('chart'), W=1000,H=330, m={l:70,r:22,t:22,b:48}, cw=W-m.l-m.r,ch=H-m.t-m.b;
+  const maxVal=Math.max(...rows.map(r=>r.theoretical))*1.12 || 1;
+  let s=`<rect width="${W}" height="${H}" fill="white" rx="8"/>`;
+  const ticks=5;
+  for(let i=0;i<=ticks;i++){
+    const y=m.t+ch*i/ticks, val=maxVal*(1-i/ticks);
+    s+=`<line x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}" stroke="#e5eaf2" stroke-width="1"/>`;
+    s+=`<text x="${m.l-10}" y="${y+4}" text-anchor="end" font-size="11" fill="#68758c">${fmt(val/1000,1)}</text>`;
+  }
+  s+=`<text x="16" y="18" font-size="11" fill="#68758c">MWh</text>`;
+  const slot=cw/12, groupW=Math.min(50,slot*.68), barW=groupW/2-2;
+  rows.forEach((r,i)=>{
+    const x=m.l+i*slot+(slot-groupW)/2;
+    const h1=ch*r.theoretical/maxVal, h2=ch*r.expected/maxVal;
+    const y1=m.t+ch-h1,y2=m.t+ch-h2;
+    s+=`<rect class="bar" data-label="${i+1}월 이론" data-value="${fmt(r.theoretical,0)} kWh" x="${x}" y="${y1}" width="${barW}" height="${h1}" rx="3" fill="#7fb0f5"/>`;
+    s+=`<rect class="bar" data-label="${i+1}월 1년차 예상" data-value="${fmt(r.expected,0)} kWh" x="${x+barW+4}" y="${y2}" width="${barW}" height="${h2}" rx="3" fill="#1769e0"/>`;
+    s+=`<text x="${m.l+i*slot+slot/2}" y="${H-20}" text-anchor="middle" font-size="11" fill="#5f6a80">${i+1}월</text>`;
+  });
+  svg.innerHTML=s;
+  bindTooltip(svg,'.bar');
+}
+
+function drawYearChart(rows){
+  const svg=$('yearChart'), W=1000,H=350, m={l:72,r:28,t:24,b:52}, cw=W-m.l-m.r,ch=H-m.t-m.b;
+  const maxVal=Math.max(...rows.map(r=>r.theoretical))*1.10 || 1;
+  const minVal=Math.min(...rows.map(r=>r.expected))*0.94;
+  const yMin=Math.max(0,Math.min(minVal,maxVal*0.75));
+  const yRange=Math.max(1,maxVal-yMin);
+  const xFor=i=>rows.length===1?m.l+cw/2:m.l+cw*i/(rows.length-1);
+  const yFor=v=>m.t+ch-(v-yMin)/yRange*ch;
+  let s=`<rect width="${W}" height="${H}" fill="white" rx="8"/>`;
+  const ticks=5;
+  for(let i=0;i<=ticks;i++){
+    const y=m.t+ch*i/ticks, val=maxVal-yRange*i/ticks;
+    s+=`<line x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}" stroke="#e5eaf2" stroke-width="1"/>`;
+    s+=`<text x="${m.l-10}" y="${y+4}" text-anchor="end" font-size="11" fill="#68758c">${fmt(val/1000,1)}</text>`;
+  }
+  s+=`<text x="16" y="18" font-size="11" fill="#68758c">MWh</text>`;
+  const theoryPts=rows.map((r,i)=>`${xFor(i)},${yFor(r.theoretical)}`).join(' ');
+  const expectedPts=rows.map((r,i)=>`${xFor(i)},${yFor(r.expected)}`).join(' ');
+  s+=`<polyline points="${theoryPts}" fill="none" stroke="#7fb0f5" stroke-width="3" stroke-dasharray="7 5"/>`;
+  s+=`<polyline points="${expectedPts}" fill="none" stroke="#1769e0" stroke-width="3.5"/>`;
+  const labelStep=Math.max(1,Math.ceil(rows.length/10));
+  rows.forEach((r,i)=>{
+    const x=xFor(i), yt=yFor(r.theoretical), ye=yFor(r.expected);
+    if(i===0||i===rows.length-1||i%labelStep===0){
+      s+=`<text x="${x}" y="${H-20}" text-anchor="middle" font-size="11" fill="#5f6a80">${r.year}년</text>`;
+    }
+    s+=`<circle class="year-point" data-label="${r.year}년차 이론" data-value="${fmt(r.theoretical,0)} kWh" cx="${x}" cy="${yt}" r="5" fill="#7fb0f5" opacity="0.9"/>`;
+    s+=`<circle class="year-point" data-label="${r.year}년차 예상" data-value="${fmt(r.expected,0)} kWh · 성능계수 ${fmt(r.performanceFactor*100,2)}%" cx="${x}" cy="${ye}" r="5" fill="#1769e0"/>`;
+  });
+  svg.innerHTML=s;
+  bindTooltip(svg,'.year-point');
+}
+
+function bindTooltip(svg,selector){
+  const tip=$('tooltip');
+  svg.querySelectorAll(selector).forEach(el=>{
+    el.addEventListener('mousemove',e=>{tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-36)+'px';tip.textContent=`${el.dataset.label}: ${el.dataset.value}`});
+    el.addEventListener('mouseleave',()=>tip.style.display='none');
+  });
+}
+
+function updateYearTable(rows){
+  $('yearResultBody').innerHTML=rows.map(r=>`<tr><td>${r.year}년차</td><td>${fmt(r.performanceFactor*100,2)}%</td><td>${fmt(r.degradationRate*100,2)}%</td><td>${fmt(r.theoretical,0)}</td><td>${fmt(r.expected,0)}</td><td>${fmt(r.theoryEqDay,2)}</td><td>${fmt(r.expectedEqDay,2)}</td><td>${fmt(r.cumulative,0)}</td></tr>`).join('');
+  const final=rows[rows.length-1];
+  $('yearResultFoot').innerHTML=`<tr><td>${rows.length}년 합계</td><td>${fmt(final.performanceFactor*100,2)}%</td><td>${fmt(final.degradationRate*100,2)}%</td><td>${fmt(rows.reduce((s,r)=>s+r.theoretical,0),0)}</td><td>${fmt(final.cumulative,0)}</td><td>-</td><td>-</td><td>${fmt(final.cumulative,0)}</td></tr>`;
+}
+
+function directionLabel(az){
+  const dirs=['북','북동','동','남동','남','남서','서','북서'];
+  return dirs[Math.round((az%360)/45)%8]+'향';
+}
+
+function updateSummary(o){
+  const best=lastResults.reduce((a,b)=>a.expected>b.expected?a:b);
+  const worst=lastResults.reduce((a,b)=>a.expected<b.expected?a:b);
+  const final=lastYearResults[lastYearResults.length-1];
+  const firstTotalLoss=(1-o.annualExpected/o.annualTheory)*100;
+  $('summaryTitle').textContent=`${o.region} · ${fmt(o.capacity,1)} kW · ${o.analysisYears}년 분석`;
+  $('summaryText').textContent=`경사각 ${fmt(o.tilt,1)}°, ${directionLabel(o.azimuth)}(방위각 ${fmt(o.azimuth,1)}°) 조건의 연간 이론 발전량은 ${fmtEnergy(o.annualTheory)}입니다. PR ${fmt(o.pr*100,1)}%와 1년차 모듈 저하율 ${fmt(o.firstLoss*100,2)}%를 반영한 1년차 예상 발전량은 ${fmtEnergy(o.annualExpected)}, 예상 등가발전시간은 ${fmt(o.expectedEqDay,2)}시간/일입니다. ${o.analysisYears}년차 모듈 성능계수는 ${fmt(final.performanceFactor*100,2)}%, 해당 연차 예상 발전량은 ${fmtEnergy(final.expected)}이며, ${o.analysisYears}년 누적 예상 발전량은 ${fmtEnergy(final.cumulative)}입니다. 1년차 기준 이론 대비 총 반영 손실은 ${fmt(firstTotalLoss,1)}%입니다. 월별로는 ${best.month}월이 가장 높고 ${worst.month}월이 가장 낮게 산정되었습니다.`;
+  $('bestMonth').textContent=`${best.month}월 · ${fmtEnergy(best.expected)}`;
+  $('appliedPr').textContent=fmt(o.pr*100,1)+'%';
+  $('degradationFactor').textContent=`${o.analysisYears}년차 ${fmt(final.performanceFactor*100,2)}%`;
+}
+
+
+function saveEconomicLinkData(o){
+  try{
+    const monthlyExpected = lastResults.map(r=>Math.round(r.expected));
+    const yearlyExpected = lastYearResults.map(r=>Math.round(r.expected));
+    const payload = {
+      version:'260731', savedAt:new Date().toISOString(),
+      region:o.region, capacity:o.capacity, tilt:o.tilt, azimuth:o.azimuth,
+      pr:o.pr, firstLoss:o.firstLoss, laterLoss:o.laterLoss, analysisYears:o.analysisYears,
+      annualTheory:Math.round(o.annualTheory), annualExpected:Math.round(o.annualExpected),
+      theoryEqDay:o.theoryEqDay, expectedEqDay:o.expectedEqDay,
+      monthlyExpected, yearlyExpected,
+      months: MONTH_NAMES
+    };
+    localStorage.setItem('solarGenerationAnalysis260731', JSON.stringify(payload));
+  }catch(e){ /* localStorage unavailable */ }
+}
+
+function openEconomicAnalysis(){
+  try{
+    localStorage.setItem('solarGenerationAnalysis260731_openedAt', new Date().toISOString());
+  }catch(e){}
+  window.open('solar_economic_analysis_260731.html','_blank');
+}
+
+function downloadCsv(){
+  if(!lastResults.length||!lastYearResults.length) return;
+  const lines=[];
+  lines.push('[월별 분석]');
+  lines.push(['월','수평면 일사량(kWh/m2/일)','경사면 일사량(kWh/m2/일)','일사량 보정계수','이론 발전량(kWh)','1년차 예상 발전량(kWh)','이론 등가시간(h/일)','예상 등가시간(h/일)'].join(','));
+  lastResults.forEach(r=>lines.push([r.month,r.ghi.toFixed(3),r.poa.toFixed(3),r.factor.toFixed(3),r.theoretical.toFixed(0),r.expected.toFixed(0),r.theoryEqDay.toFixed(2),r.expectedEqDay.toFixed(2)].join(',')));
+  lines.push('');
+  lines.push('[연도별 분석]');
+  lines.push(['연차','모듈 성능계수(%)','누적 성능저하율(%)','이론 발전량(kWh)','예상 발전량(kWh)','이론 등가시간(h/일)','예상 등가시간(h/일)','누적 예상 발전량(kWh)'].join(','));
+  lastYearResults.forEach(r=>lines.push([r.year,(r.performanceFactor*100).toFixed(2),(r.degradationRate*100).toFixed(2),r.theoretical.toFixed(0),r.expected.toFixed(0),r.theoryEqDay.toFixed(2),r.expectedEqDay.toFixed(2),r.cumulative.toFixed(0)].join(',')));
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='solar_generation_analysis_260731.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
+function setMode(mode){
+  prMode=mode;
+  $('simpleMode').hidden=mode!=='simple'; $('detailMode').hidden=mode!=='detail';
+  $('simpleBtn').classList.toggle('active',mode==='simple'); $('detailBtn').classList.toggle('active',mode==='detail');
+  analyze();
+}
+
+function resetAll(){
+  $('region').value='전국평균'; $('capacity').value=100; $('tilt').value=30; $('direction').value='180'; $('azimuth').value=180;
+  $('simplePr').value=80; $('firstYearDeg').value=1.5; $('laterDeg').value=.33; $('analysisYears').value=25;
+  const defaults={lossTemp:6,lossSoiling:2,lossShade:1,lossMismatch:2,lossDc:1.5,lossInverter:3,lossAc:1,lossAvailability:1,lossOther:1};
+  Object.entries(defaults).forEach(([k,v])=>$(k).value=v);
+  setMode('simple');
+}
+
+function init(){
+  Object.keys(SOLAR_DATA).forEach(r=>{const op=document.createElement('option');op.value=r;op.textContent=r;$('region').appendChild(op)});
+  $('region').value='전국평균';
+  $('simpleBtn').onclick=()=>setMode('simple'); $('detailBtn').onclick=()=>setMode('detail');
+  $('direction').addEventListener('change',e=>{if(e.target.value!=='custom')$('azimuth').value=e.target.value;analyze()});
+  $('azimuth').addEventListener('input',()=>{$('direction').value='custom';analyze()});
+  document.querySelectorAll('input,select').forEach(el=>{if(!['direction','azimuth'].includes(el.id))el.addEventListener('input',analyze)});
+  $('resetBtn').onclick=resetAll; $('csvBtn').onclick=downloadCsv; $('printBtn').onclick=()=>window.print(); $('econBtn').onclick=openEconomicAnalysis;
+  analyze();
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
