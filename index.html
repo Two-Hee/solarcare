@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>태양광 예상 발전량 분석 v5 · 기상청 61개 지점</title>
+<style>
+:root{
+  --paper:#F4F7F7; --card:#FFFFFF; --ink:#141A1C; --ink2:#4A585B; --ink3:#7A8A8D;
+  --line:#DCE5E5; --line2:#C2D0D1; --teal:#0F6675; --teal2:#14808F; --tealsoft:#E7F1F2;
+  --sun:#C98A16; --sunsoft:#FBF2DF; --good:#1E7A5E; --bad:#B3452F;
+  --shadow:0 1px 2px rgba(16,40,44,.05), 0 10px 28px -14px rgba(16,40,44,.22);
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#0D1315; --card:#151E20; --ink:#E7EDEC; --ink2:#A2B1B2; --ink3:#71807F;
+    --line:#222F32; --line2:#324449; --teal:#5FBECD; --teal2:#7FD0DC; --tealsoft:#10282E;
+    --sun:#E0A93C; --sunsoft:#2A2314; --good:#4FBF95; --bad:#E28368;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7); }
+}
+:root[data-theme="dark"]{ --paper:#0D1315; --card:#151E20; --ink:#E7EDEC; --ink2:#A2B1B2; --ink3:#71807F;
+  --line:#222F32; --line2:#324449; --teal:#5FBECD; --teal2:#7FD0DC; --tealsoft:#10282E;
+  --sun:#E0A93C; --sunsoft:#2A2314; --good:#4FBF95; --bad:#E28368;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7); }
+:root[data-theme="light"]{ --paper:#F4F7F7; --card:#FFFFFF; --ink:#141A1C; --ink2:#4A585B; --ink3:#7A8A8D;
+  --line:#DCE5E5; --line2:#C2D0D1; --teal:#0F6675; --teal2:#14808F; --tealsoft:#E7F1F2;
+  --sun:#C98A16; --sunsoft:#FBF2DF; --good:#1E7A5E; --bad:#B3452F;
+  --shadow:0 1px 2px rgba(16,40,44,.05), 0 10px 28px -14px rgba(16,40,44,.22); }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);line-height:1.6;
+  font-family:"Pretendard","Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+.app{max-width:1500px;margin:0 auto;padding:22px}
+
+/* hero */
+.hero{background:linear-gradient(118deg,#0B4C58 0%,var(--teal) 46%,#177C8C 100%);
+  color:#fff;border-radius:18px;padding:26px 30px;box-shadow:var(--shadow);
+  display:flex;justify-content:space-between;align-items:flex-end;gap:26px;flex-wrap:wrap}
+.hero h1{margin:0 0 5px;font-size:clamp(22px,2.7vw,31px);letter-spacing:-.03em;font-weight:700}
+.hero p{margin:0;opacity:.9;font-size:14px}
+.hero .chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid rgba(255,255,255,.32);background:rgba(255,255,255,.12);
+  padding:6px 12px;border-radius:999px;font-size:12px;white-space:nowrap}
+.chip b{font-weight:700}
+
+.layout{display:grid;grid-template-columns:344px minmax(0,1fr);gap:18px;margin-top:18px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+
+/* controls */
+.ctrl{padding:20px;position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow-y:auto}
+.ctrl h2{margin:0 0 4px;font-size:15px;letter-spacing:-.02em}
+.ctrl .sub{margin:0 0 14px;font-size:11.5px;color:var(--ink3)}
+.grp{border-top:1px solid var(--line);padding:14px 0}
+.grp:first-of-type{border-top:0;padding-top:0}
+.grp>h3{margin:0 0 10px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);font-weight:700}
+.f{margin-top:10px}
+.f:first-child{margin-top:0}
+label{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;font-size:12.5px;font-weight:600}
+label span{font-weight:400;color:var(--ink3)}
+input,select{width:100%;height:38px;border:1px solid var(--line2);border-radius:8px;
+  background:var(--card);padding:0 10px;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--teal) 18%,transparent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--tealsoft);padding:3px;border-radius:9px;margin-bottom:10px}
+.seg button{height:32px;border:0;background:transparent;border-radius:7px;color:var(--ink3);font-weight:700;font-size:12.5px;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--teal);box-shadow:0 1px 4px rgba(20,40,45,.12)}
+.losses{display:grid;grid-template-columns:1fr 76px;gap:6px 8px;align-items:center}
+.losses label{margin:0;font-weight:500;font-size:12px}
+.losses input{height:32px;text-align:right;padding:0 8px}
+.prbox{margin-top:10px;padding:10px 12px;border-radius:9px;background:var(--tealsoft);
+  display:flex;justify-content:space-between;font-weight:700;font-size:13px;color:var(--teal)}
+.hint{margin:7px 0 0;font-size:11.5px;color:var(--ink3);line-height:1.5}
+.qbadge{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px}
+.qbadge span{font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--ink2);white-space:nowrap}
+.qbadge span.g{background:color-mix(in srgb,var(--good) 14%,transparent);border-color:color-mix(in srgb,var(--good) 40%,transparent);color:var(--good);font-weight:700}
+.qbadge span.w{background:color-mix(in srgb,var(--sun) 16%,transparent);border-color:color-mix(in srgb,var(--sun) 45%,transparent);color:var(--sun);font-weight:700}
+.qbadge span.b{background:color-mix(in srgb,var(--bad) 14%,transparent);border-color:color-mix(in srgb,var(--bad) 42%,transparent);color:var(--bad);font-weight:700}
+.qmsg{margin:7px 0 0;font-size:11.5px;line-height:1.5}
+.err{display:none;margin-top:10px;padding:9px 11px;border-radius:8px;font-size:12px;
+  background:color-mix(in srgb,var(--bad) 12%,transparent);border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);color:var(--bad)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px}
+.acts button{height:38px;border-radius:8px;border:1px solid var(--line2);background:var(--card);
+  cursor:pointer;font-weight:600;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:background .15s,border-color .15s}
+.acts button:hover{border-color:var(--teal);color:var(--teal)}
+.acts button.wide{grid-column:1/-1}
+.acts button.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+.acts button.pri:hover{filter:brightness(1.08);color:#fff}
+.acts svg{width:14px;height:14px}
+
+/* content */
+.content{display:grid;gap:18px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.kpi{padding:15px 16px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.kpi .n{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:.02em}
+.kpi .v{font-size:22px;font-weight:800;letter-spacing:-.035em;margin-top:4px;line-height:1.15}
+.kpi .s{font-size:11px;color:var(--ink3);margin-top:3px}
+.kpi.a{background:linear-gradient(170deg,var(--card),var(--tealsoft));border-color:color-mix(in srgb,var(--teal) 30%,var(--line))}
+.kpi.a .v{color:var(--teal)}
+.kpi.b{background:linear-gradient(170deg,var(--card),var(--sunsoft));border-color:color-mix(in srgb,var(--sun) 30%,var(--line))}
+.kpi.b .v{color:var(--sun)}
+
+.blk{padding:20px 22px}
+.bh{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.bh h2{margin:0;font-size:17px;letter-spacing:-.025em}
+.bh p{margin:3px 0 0;color:var(--ink3);font-size:12px}
+.legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--ink3);align-items:center}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg.chart{width:100%;display:block;overflow:visible}
+.scroll{overflow-x:auto}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;min-width:660px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:var(--tealsoft);color:var(--teal);font-size:11.5px;font-weight:700;z-index:1}
+th:first-child,td:first-child{text-align:center;font-weight:600}
+tbody tr:hover td{background:color-mix(in srgb,var(--teal) 5%,transparent)}
+tfoot td{font-weight:800;background:var(--tealsoft);border-bottom:0}
+.tw{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:460px}
+
+.note{margin-top:14px;padding:12px 14px;border-left:3px solid var(--teal);
+  background:color-mix(in srgb,var(--teal) 5%,transparent);border-radius:0 8px 8px 0;
+  font-size:12px;color:var(--ink2);display:flex;flex-direction:column;gap:5px}
+.note b{color:var(--ink);font-weight:700}
+.note.warn{border-left-color:var(--sun);background:color-mix(in srgb,var(--sun) 7%,transparent)}
+.note code{font-family:ui-monospace,Consolas,monospace;background:var(--tealsoft);padding:1px 5px;border-radius:4px;font-size:11.5px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sum{display:grid;grid-template-columns:1.5fr .8fr;gap:14px}
+.sumbox{padding:16px;border-radius:10px;background:color-mix(in srgb,var(--teal) 5%,transparent);border:1px solid var(--line)}
+.sumbox h3{margin:0 0 7px;font-size:14.5px}
+.sumbox p{margin:0;color:var(--ink2);font-size:13px}
+.sl{display:grid;gap:8px}
+.si{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+.si b{display:block;font-size:11px;color:var(--ink3);font-weight:700}
+.si span{display:block;font-size:15.5px;font-weight:800;margin-top:2px}
+
+.src{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.src div{background:var(--card);padding:13px 14px}
+.src .n{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.src .l{font-size:11px;color:var(--ink3);margin-top:2px;line-height:1.4}
+.tt{position:fixed;pointer-events:none;display:none;z-index:40;background:#0F1D20;color:#fff;
+  padding:7px 10px;border-radius:7px;font-size:11.5px;box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);
+  background:var(--teal);color:#fff;padding:11px 20px;border-radius:10px;font-size:13.5px;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:all .3s cubic-bezier(.2,.8,.3,1);z-index:60}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+.themetog{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
+  color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;display:grid;place-items:center}
+
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}.ctrl{position:static;max-height:none}.grid2{grid-template-columns:1fr}.sum{grid-template-columns:1fr}}
+@media(max-width:620px){.app{padding:12px}.kpis{grid-template-columns:1fr 1fr}.hero{padding:20px}.blk{padding:16px}}
+@media print{
+  body{background:#fff}.app{max-width:none;padding:0}
+  .ctrl,.acts,.themetog,.tt,.toast{display:none!important}
+  .layout{display:block}.content{gap:10px}
+  .panel{box-shadow:none;border-color:#ccc;break-inside:avoid}
+  .hero{box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .kpis{grid-template-columns:repeat(6,1fr)}
+  .tw{max-height:none;overflow:visible}
+  .blk{break-inside:avoid}
+  @page{size:A4 landscape;margin:10mm}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hero" style="position:relative">
+    <div>
+      <h1>태양광 예상 발전량 분석</h1>
+      <p>기상청 61개 ASOS 관측지점 원자료를 검증·재집계한 일사량 기반 · 경사면 전사와 모듈 성능저하 반영</p>
+    </div>
+    <div class="chips">
+      <span class="chip">자료 <b>기상청 API허브</b></span>
+      <span class="chip">기간 <b id="chipBasis">2021–2025</b></span>
+      <span class="chip">검증 <b>177,821 관측일</b></span>
+      <span class="chip" id="chipVer">v5 · 260809</span>
+    </div>
+    <button class="themetog" id="themeBtn" title="라이트/다크 전환" aria-label="테마 전환">◐</button>
+  </header>
+
+  <main class="layout">
+    <aside class="panel ctrl">
+      <h2>입력 조건</h2>
+      <p class="sub">값을 바꾸면 즉시 재계산됩니다</p>
+
+      <section class="grp">
+        <h3>자원 조건</h3>
+        <div class="f"><label for="region">관측지점 <span id="stnCount">–</span></label><select id="region"></select></div>
+        <div id="qbadge" class="qbadge"></div>
+        <div class="f"><label for="basis">일사량 기준 <span>관측 구간</span></label>
+          <select id="basis">
+            <option value="new">최근 5년 2021–2025 (권장)</option>
+            <option value="old">10년 2016–2025</option>
+          </select></div>
+        <div class="row2 f">
+          <div><label for="tilt">경사각 <span>0–90°</span></label><input id="tilt" type="number" min="0" max="90" step="1" value="30"></div>
+          <div><label for="dir">방위</label><select id="dir">
+            <option value="180">남향</option><option value="135">남동</option><option value="225">남서</option>
+            <option value="90">동향</option><option value="270">서향</option><option value="custom">직접</option>
+          </select></div>
+        </div>
+        <div class="f"><label for="azimuth">방위각 <span>북0·동90·남180·서270</span></label>
+          <input id="azimuth" type="number" min="0" max="359.9" step="0.1" value="180"></div>
+        <div class="row2 f">
+          <div><label for="albedo">지면반사율 <span>0–1</span></label><input id="albedo" type="number" min="0" max="1" step="0.01" value="0.20"></div>
+          <div><label for="lat">위도 <span>°N</span></label><input id="lat" type="number" min="30" max="45" step="0.0001" placeholder="자동"></div>
+        </div>
+        <p class="hint">위도를 비우면 권역 관측소 중심위도가 자동 적용됩니다.</p>
+      </section>
+
+      <section class="grp">
+        <h3>설비 · 시스템</h3>
+        <div class="f"><label for="cap">설치용량 <span>kWp (DC)</span></label><input id="cap" type="number" min="0.1" step="0.1" value="1000"></div>
+        <div class="seg" style="margin-top:10px">
+          <button id="simpleBtn" class="on" type="button">간편 PR</button>
+          <button id="detailBtn" type="button">상세 손실</button>
+        </div>
+        <div id="simpleWrap">
+          <div class="f"><label for="pr">시스템 PR <span>%</span></label><input id="pr" type="number" min="1" max="100" step="0.1" value="80"></div>
+          <p class="hint">온도·인버터·배선·오염·불일치·비가동을 하나로 반영합니다.</p>
+        </div>
+        <div id="detailWrap" hidden>
+          <div class="losses">
+            <label for="l1">모듈 온도</label><input class="ls" id="l1" type="number" min="0" max="100" step="0.1" value="6.0">
+            <label for="l2">오염·적설</label><input class="ls" id="l2" type="number" min="0" max="100" step="0.1" value="2.0">
+            <label for="l3">음영</label><input class="ls" id="l3" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="l4">모듈 불일치</label><input class="ls" id="l4" type="number" min="0" max="100" step="0.1" value="2.0">
+            <label for="l5">DC 선로</label><input class="ls" id="l5" type="number" min="0" max="100" step="0.1" value="1.5">
+            <label for="l6">인버터</label><input class="ls" id="l6" type="number" min="0" max="100" step="0.1" value="3.0">
+            <label for="l7">AC·변압기</label><input class="ls" id="l7" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="l8">비가동</label><input class="ls" id="l8" type="number" min="0" max="100" step="0.1" value="1.0">
+            <label for="l9">기타</label><input class="ls" id="l9" type="number" min="0" max="100" step="0.1" value="1.0">
+          </div>
+          <div class="prbox"><span>계산 PR</span><span id="prCalc">–</span></div>
+          <p class="hint">각 손실의 잔존율을 연속 곱하여 산출합니다.</p>
+        </div>
+        <div class="f" style="margin-top:12px"><label for="curt">출력제한률 <span>%</span></label><input id="curt" type="number" min="0" max="100" step="0.1" value="0"></div>
+        <p class="hint">계통 제약에 의한 손실. PR에 포함되지 않는 항목만 입력하십시오.</p>
+      </section>
+
+      <section class="grp">
+        <h3>모듈 성능저하</h3>
+        <div class="row2">
+          <div class="f"><label for="d1">1년차 <span>%</span></label><input id="d1" type="number" min="0" max="10" step="0.01" value="1.50"></div>
+          <div class="f"><label for="d2">2년차~ <span>%/년</span></label><input id="d2" type="number" min="0" max="5" step="0.01" value="0.33"></div>
+        </div>
+        <div class="row2 f">
+          <div><label for="years">종료연차 <span>1–40</span></label><input id="years" type="number" min="1" max="40" step="1" value="25"></div>
+          <div><label for="qy">조회연차 <span>월별표</span></label><input id="qy" type="number" min="1" max="40" step="1" value="1"></div>
+        </div>
+        <p class="hint">N년차 성능계수 = 1 − D₁ − (N−1) × D₂ (선형 출력보증 방식).</p>
+      </section>
+
+      <div id="err" class="err"></div>
+      <div class="acts">
+        <button type="button" id="resetBtn">초기화</button>
+        <button type="button" id="p90Btn">P90 보기</button>
+        <button type="button" id="xlsBtn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6L9 1z"/><path d="M9 1v5h5"/></svg>
+          엑셀</button>
+        <button type="button" id="pptBtn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2.5" width="13" height="9" rx="1"/><path d="M8 11.5v2M5.5 13.5h5"/></svg>
+          PPT</button>
+        <button class="pri wide" type="button" id="pdfBtn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M4.5 6.5 8 10l3.5-3.5M2 13.5h12"/></svg>
+          PDF · 인쇄</button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="kpis">
+        <article class="kpi a"><div class="n">1년차 예상 발전량</div><div class="v" id="k1">–</div><div class="s" id="k1s">–</div></article>
+        <article class="kpi"><div class="n">조회연차 예상 발전량</div><div class="v" id="k2">–</div><div class="s" id="k2s">–</div></article>
+        <article class="kpi"><div class="n">종료연차 예상 발전량</div><div class="v" id="k3">–</div><div class="s" id="k3s">–</div></article>
+        <article class="kpi b"><div class="n">누적 예상 발전량</div><div class="v" id="k4">–</div><div class="s" id="k4s">–</div></article>
+        <article class="kpi"><div class="n">예상 등가발전시간</div><div class="v" id="k5">–</div><div class="s">1년차 · 발전량÷용량÷365</div></article>
+        <article class="kpi"><div class="n">경사면 보정계수</div><div class="v" id="k6">–</div><div class="s" id="k6s">–</div></article>
+      </div>
+
+      <article class="panel blk">
+        <div class="bh">
+          <div><h2>월별 예상 발전량</h2><p id="mSub">조회 연차 기준 · 경사면 일사량과 예상 발전량</p></div>
+          <div class="legend"><span><i style="background:var(--teal)"></i>예상 발전량</span><span><i style="background:var(--sun)"></i>경사면 일사량</span></div>
+        </div>
+        <svg id="mChart" class="chart" viewBox="0 0 1000 300" role="img" aria-label="월별 예상 발전량"></svg>
+        <div class="tw" style="margin-top:14px"><table>
+          <thead><tr><th>월</th><th>일수</th><th>수평면 일사량<br>(kWh/㎡/일)</th><th>경사면 일사량<br>(kWh/㎡/일)</th><th>보정계수</th><th>경사면 월합<br>(kWh/㎡)</th><th>예상 발전량<br>(kWh)</th><th>예상 등가시간<br>(h/일)</th><th>구성비</th></tr></thead>
+          <tbody id="mBody"></tbody><tfoot id="mFoot"></tfoot></table></div>
+        <div class="note">
+          <span><b>읽는 법</b> — 보정계수는 경사면 일사량 ÷ 수평면 일사량입니다. 1보다 크면 그 달의 경사·방위 조건이 수평면보다 유리하다는 뜻으로, 태양고도가 낮은 겨울에 커지고 여름에 1 미만으로 떨어지는 것이 정상입니다.</span>
+          <span><b>주의</b> — PR이 연중 상수로 적용됩니다. 실제로는 모듈 온도 때문에 여름 PR이 낮고 겨울이 높아, 월별 배분은 실제보다 여름이 과대·겨울이 과소 평가됩니다. 연간 합계는 영향이 없습니다.</span>
+        </div>
+      </article>
+
+      <article class="panel blk">
+        <div class="bh">
+          <div><h2>연도별 예상 발전량</h2><p id="ySub">모듈 성능저하를 반영한 종료연차까지의 추이</p></div>
+          <div class="legend"><span><i style="background:var(--teal)"></i>연간 예상</span><span><i style="background:var(--sun)"></i>누적 예상</span></div>
+        </div>
+        <svg id="yChart" class="chart" viewBox="0 0 1000 320" role="img" aria-label="연도별 예상 발전량"></svg>
+        <div class="tw" style="margin-top:14px"><table>
+          <thead><tr><th>연차</th><th>모듈 성능계수</th><th>누적 성능저하율</th><th>연간 예상 발전량<br>(kWh)</th><th>예상 등가시간<br>(h/일)</th><th>누적 예상 발전량<br>(kWh)</th></tr></thead>
+          <tbody id="yBody"></tbody><tfoot id="yFoot"></tfoot></table></div>
+        <div class="note">
+          <span><b>성능계수</b> — <code>N년차 = 1 − D₁ − (N−1) × D₂</code>. 기본값 1.50% / 0.33%는 25년차 90.58%에 해당하며, 이는 상급 TOPCon·HJT 수준입니다. 일반 PERC 보증선(2.0% / 0.55% → 84.8%)보다 낙관적이므로 <b>실제 모듈 데이터시트의 선형출력보증 값</b>을 입력하십시오.</span>
+          <span><b>미반영</b> — 인버터 교체 주기, 계통 정전, 적설 손실, 출력제어 확대는 반영되어 있지 않습니다.</span>
+        </div>
+      </article>
+
+      <article class="panel blk">
+        <div class="bh"><div><h2>경사각 · 방위각 최적화</h2><p>현재 지역 조건에서 각도를 바꿨을 때의 연간 경사면 일사량</p></div></div>
+        <div class="grid2">
+          <div><svg id="tChart" class="chart" viewBox="0 0 500 280" role="img" aria-label="경사각별 일사량"></svg></div>
+          <div><svg id="aChart" class="chart" viewBox="0 0 500 280" role="img" aria-label="방위각별 일사량"></svg></div>
+        </div>
+        <div class="note warn">
+          <span><b>행간 음영이 반영되지 않았습니다.</b> 어레이 간격(GCR)을 고려하면 실제 최적 경사각은 위 결과보다 5~10° 낮아집니다. 이 그래프는 각도 민감도의 상한을 보여주는 용도로만 쓰십시오.</span>
+          <span><b>동서 대칭</b> — 태양시 기준 계산이라 남동향과 남서향이 동일하게 나옵니다. 오전·오후 기상 비대칭은 모델에 없습니다.</span>
+        </div>
+      </article>
+
+      <article class="panel blk">
+        <div class="bh"><div><h2>자원 데이터 근거</h2><p>이 분석에 사용된 일사량의 출처와 검증 이력</p></div></div>
+        <div class="src">
+          <div><div class="n" id="srcCode">–</div><div class="l">지점코드<br><span id="srcQual">–</span></div></div>
+          <div><div class="n" id="srcBias">–</div><div class="l">계기 편향 판정<br><span id="srcRatio">–</span></div></div>
+          <div><div class="n" id="srcLat">–</div><div class="l">적용 위도<br><span id="srcStn">–</span></div></div>
+          <div><div class="n" id="srcGhi">–</div><div class="l">연간 수평면 일사량<br>kWh/㎡/yr</div></div>
+          <div><div class="n" id="srcP90">–</div><div class="l">P90 계수<br>연간 자원 변동성 기준</div></div>
+        </div>
+        <div class="note">
+          <span><b>출처</b> — 기상청 종관기상관측(ASOS) 일사량 일자료 2016–2025, 61개 지점 · 177,821 관측일. <code>기상청_10년_POA_분석_v03.xlsx</code> 의 검증 집계값을 그대로 사용합니다. 일 청명지수 <code>Kt&gt;1</code> 인 물리적 불가 관측 27건은 집계에서 제외되었습니다. 환산 1 kWh/㎡ = 3.6 MJ/㎡.</span>
+          <span><b>기준 기간</b> — 다수 지점에서 2016~2019년 관측값이 최근 5년보다 낮게 나타나는 계기 편향이 확인되어, <b>최근 5년(2021–2025)</b> 을 기본값으로 씁니다. 지점별 편향 판정은 좌측 패널의 배지와 위 카드에 표시됩니다. 편향비는 최근5년 ÷ 2016~19년 유효 일평균입니다.</span>
+          <span><b>태양기하</b> — 적위·지구태양거리는 Spencer(1971) 급수식을 사용해 원본 워크북과 동일하게 맞췄습니다. 단순 Cooper 근사식 대비 연간 POA가 약 0.7% 낮게(정확하게) 산출됩니다.</span>
+          <span><b>P90의 범위</b> — 연간 일사량의 해간 변동성만 반영합니다. 음영·모델·계측 불확도는 <b>포함되어 있지 않으므로</b>, 금융 검토용 P90은 이 값보다 보수적으로(통상 P50의 92~93%) 잡으셔야 합니다.</span>
+        </div>
+      </article>
+
+      <article class="panel blk">
+        <div class="bh"><div><h2>결론 요약</h2><p>입력 조건과 주요 결과</p></div></div>
+        <div class="sum">
+          <div class="sumbox"><h3 id="sumT">–</h3><p id="sumP">–</p></div>
+          <div class="sl">
+            <div class="si"><b>최대 발전월</b><span id="sBest">–</span></div>
+            <div class="si"><b>적용 PR</b><span id="sPr">–</span></div>
+            <div class="si"><b>종료연차 성능계수</b><span id="sDeg">–</span></div>
+          </div>
+        </div>
+        <div class="note">
+          <span><b>용도</b> — 광역권 월평균 자료 기반의 예비 타당성 검토용입니다. 금융·EPC 성능보증에는 현장 좌표의 시간별 GHI/DNI/DHI, 모듈·인버터 사양, 음영 시뮬레이션을 사용하십시오.</span>
+          <span><b>모든 발전량은 "예상" 값입니다</b> — PR과 모듈 성능저하가 반영되어 있으며, 손실이 적용되지 않은 이론 발전량과 구분하십시오.</span>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+<div class="tt" id="tt"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════ 검증 데이터 (기상청 재집계, SOLAR_DATA_v3) ═══════════ */
+const D_NEW={"강릉":[2.6429,3.2923,4.0070,5.1459,5.5837,5.4056,4.9070,4.1533,3.7432,2.8084,2.6810,2.3391],"강진군":[2.6923,3.3553,4.2206,5.1699,5.6360,5.3844,4.7731,5.0782,4.1031,3.6942,2.8573,2.3445],"경주시":[2.9223,3.5670,4.3213,5.3931,5.9744,5.6537,5.1077,4.8591,3.5818,3.2649,3.0313,2.6887],"고산":[2.1587,2.8080,3.9771,5.0540,5.4052,4.7959,4.8721,5.3214,4.4017,3.9024,2.8202,1.9400],"고창":[2.6498,3.3927,4.4127,5.4315,5.7506,5.8328,5.4764,5.2625,4.2614,3.7701,2.8390,2.2095],"고창군":[2.5413,3.2757,4.2643,5.2775,5.7096,5.5433,4.8715,4.9141,4.0841,3.6254,2.7451,2.1379],"고흥":[2.9118,3.8318,4.0853,4.9645,5.6417,5.2309,5.3340,5.4153,3.9880,3.3864,3.0467,2.7493],"광양시":[2.9327,3.6138,4.4051,5.1660,5.6178,5.4327,4.9219,5.0113,4.0759,3.7899,2.9821,2.6020],"광주":[2.8247,3.5444,4.4999,5.5003,5.9075,5.7180,4.8782,4.9476,4.1431,3.8884,3.0159,2.4238],"김해시":[2.9409,3.5800,4.2385,5.1413,5.6594,5.1807,4.9192,4.7444,3.7541,3.4450,2.9584,2.5934],"대관령":[2.8105,3.6454,4.3606,5.5201,5.9388,5.7685,5.1878,4.4302,3.8617,3.0832,2.8556,2.5222],"대구":[2.8999,3.5721,4.3756,5.4326,5.8995,5.7170,5.1290,4.7258,3.9916,3.5887,3.0200,2.6128],"대전":[2.5814,3.4373,4.2519,5.3107,5.7775,5.7218,4.9280,4.6630,4.0873,3.4832,2.8127,2.2305],"동두천":[2.3818,3.3024,4.1425,5.0328,5.5592,5.2807,4.6233,4.2407,4.0675,3.1723,2.5443,2.1912],"동해":[2.7593,4.0374,4.1182,5.6917,5.8805,6.1224,5.1464,5.2397,3.5473,2.3854,3.0302,2.4719],"목포":[2.6493,3.2742,4.2990,5.3493,5.8123,5.5542,5.0711,5.2349,4.2400,3.8001,2.8555,2.2932],"백령도":[2.2703,3.3448,4.5522,5.5751,5.9138,5.7370,5.2782,5.0253,4.6450,3.5873,2.4500,1.8839],"보령":[2.3332,3.4405,4.4010,5.1793,5.5457,5.8100,5.1252,5.5541,4.0475,2.9957,2.8405,2.1129],"보성군":[2.9750,3.6350,4.4759,5.3542,5.8211,5.6452,5.1082,5.4483,4.2799,4.0273,3.1187,2.6894],"부산":[3.1815,3.8121,4.5192,5.5745,5.9956,5.5691,5.4469,5.3207,4.1078,3.7589,3.2884,2.9369],"북강릉":[2.6665,3.3567,4.0668,5.2981,5.8314,5.6161,5.0262,4.3032,3.7945,2.8358,2.8094,2.4557],"북부산":[2.9810,3.7272,4.3758,5.1303,5.6460,5.5494,5.1439,5.4177,4.0486,3.4056,3.0299,2.8190],"북창원":[2.8971,3.5952,4.2855,5.1309,5.6382,5.1812,4.7582,4.5734,3.6119,3.4770,2.8917,2.5470],"북춘천":[2.5710,3.5294,4.2059,5.2205,5.7231,5.6721,5.1220,4.5809,4.1624,3.1231,2.6623,2.2620],"상주":[2.7242,3.5405,4.1802,5.2676,5.8567,5.9364,5.1735,4.8213,3.9659,3.3566,2.8731,2.4507],"서귀포":[2.9795,3.8403,3.9647,5.4844,5.4240,4.3828,4.8709,5.4865,4.8371,3.7336,3.0751,2.7355],"서산":[2.4528,3.3603,4.2977,5.2563,5.7410,5.5242,5.0420,4.6575,4.0605,3.4248,2.6692,2.0549],"서울":[2.5545,3.4620,4.2764,5.2131,5.8168,5.2895,4.4926,4.1370,4.1528,3.3242,2.7318,2.3141],"서청주":[2.4612,3.2072,4.3398,5.3592,5.8968,6.2298,5.0565,5.4145,4.1325,3.2839,2.8808,2.2346],"세종":[2.3539,3.2146,4.3270,5.0270,5.6243,5.9297,4.7684,5.1522,3.9583,3.1297,2.8019,2.1466],"속초":[2.5457,3.9815,4.0506,5.5976,5.8122,5.9930,4.9405,5.1738,3.4610,2.2906,2.6830,2.3281],"수원":[2.5087,3.3641,4.2149,5.1589,5.6153,5.4472,4.7716,4.4692,4.0061,3.3320,2.6336,2.2111],"순창군":[2.7274,3.4350,4.3817,5.3417,5.8402,5.6838,4.9455,4.9860,4.1650,3.7281,2.8520,2.3089],"안동":[2.8278,3.6613,4.3494,5.4393,5.9780,5.9707,5.2989,4.9213,4.0673,3.3471,2.9481,2.5360],"양산시":[2.9718,3.5982,4.2970,5.2269,5.7108,5.3379,4.9083,4.8304,3.7388,3.5202,2.9267,2.5700],"여수":[2.9934,3.5879,4.4158,5.1690,5.7164,5.3649,5.0990,5.2123,4.1791,3.8594,3.1643,2.7569],"영광군":[2.4559,3.1859,4.2782,5.3477,5.8325,5.6552,5.1269,5.2246,4.2536,3.6793,2.7448,1.9861],"완도":[2.8411,3.4941,4.0888,5.0764,5.6637,5.2015,5.6332,5.7164,4.2134,3.3449,2.9556,2.5541],"울릉도":[1.8965,2.4945,3.9171,5.3244,5.9322,5.4744,5.1688,4.5218,3.8107,2.8559,2.3163,1.6114],"울산":[2.9403,3.3331,4.4248,5.1929,5.6875,5.6258,5.3934,5.3454,3.8179,3.1079,3.0183,2.6977],"원주":[2.4920,3.4042,4.1225,5.1251,5.6812,5.6287,4.8709,4.4321,4.0414,3.2404,2.7028,2.2255],"의령군":[3.0500,3.7398,4.4989,5.2926,5.7828,5.5856,5.0273,5.1400,3.9554,3.7069,3.1410,2.8186],"인천":[2.5135,3.4432,4.2838,5.2158,5.7254,5.6061,5.0778,4.7473,4.1486,3.4091,2.6325,2.2461],"전주":[2.5018,3.2759,4.0779,5.1157,5.5286,5.4600,4.6917,4.6065,3.9949,3.5301,2.7103,2.1522],"정읍":[2.5649,3.3208,4.3414,5.1177,5.5184,5.5856,4.8092,5.2464,4.0778,3.0524,2.8862,2.2367],"제주":[1.7709,2.4060,3.8328,5.0859,5.5050,5.2225,5.1369,5.2680,3.8460,3.3869,2.4274,1.5172],"진주":[3.0360,3.6972,4.4237,5.2212,5.7822,5.5921,5.0911,5.1454,3.9418,3.7505,3.1234,2.7701],"창원":[2.7714,3.4662,4.1592,5.1074,5.6878,5.4281,5.0881,4.9661,3.7896,3.5552,2.9490,2.5628],"철원":[2.4375,3.3190,4.1851,5.2022,5.8373,5.7000,5.1116,4.6396,4.2460,3.1948,2.5500,2.1247],"청송군":[2.8561,3.6614,4.2932,5.5207,5.9713,5.8020,5.3348,4.8176,3.8761,3.2566,2.9551,2.6282],"청주":[2.4995,3.3554,4.2353,5.3470,5.9212,5.8476,5.2037,4.7121,4.2507,3.4505,2.7949,2.1568],"추풍령":[2.6941,3.5120,4.2687,5.3264,5.8049,5.9170,5.1400,4.8326,3.9790,3.4804,2.9072,2.3743],"춘천":[2.3264,3.3265,4.0104,5.0560,5.5651,5.5317,5.0096,4.5151,4.0248,2.9699,2.5096,2.0616],"충주":[2.3763,3.2671,4.0411,5.1902,6.0164,5.7288,4.7974,4.7309,4.1753,3.2009,2.6726,2.0397],"태백":[2.2395,3.9816,3.8003,5.3700,5.7083,5.8977,4.9849,4.6822,3.2747,2.0229,2.9466,2.1990],"통영":[3.0290,3.4709,4.3712,4.9548,5.4626,5.3742,4.8439,5.6005,4.2802,3.5852,3.1367,2.7535],"파주":[2.4775,3.3453,4.1893,5.0990,5.5974,5.3799,4.8401,4.6131,4.2196,3.2332,2.6008,2.2606],"포항":[2.8586,3.4587,4.1749,5.3369,5.8794,5.7470,5.1110,4.7222,3.6814,3.1699,2.9327,2.6497],"함양군":[2.8323,3.6215,4.4409,5.4617,5.9610,5.8568,5.2754,5.0125,3.9230,3.6635,2.9724,2.5090],"홍성":[2.4851,3.3349,4.1964,5.2468,5.6928,5.5794,4.9573,4.5880,3.9834,3.3528,2.6313,2.0534],"흑산도":[2.1697,3.0724,4.3835,5.3915,5.8709,5.1589,4.6674,5.1324,3.8423,3.4843,2.6717,1.9151]};
+const D_OLD={"강릉":[2.6643,3.4234,4.1092,5.2353,5.7968,5.6348,4.7884,4.2596,3.8070,2.9993,2.6873,2.4099],"강진군":[2.9082,3.4685,4.2129,4.7456,4.9794,4.5753,3.8011,4.1847,3.4289,3.3462,2.8508,2.5388],"경주시":[2.5958,3.3380,4.0197,5.0871,5.6720,5.3149,4.6069,4.6937,3.2874,3.1635,2.6799,2.4516],"고산":[1.8465,2.6180,3.7670,4.6758,4.8756,4.4383,4.4791,4.9691,3.8170,3.4420,2.5647,1.7232],"고창":[2.2872,3.0380,4.0350,4.8068,5.1496,5.0756,4.5610,4.6635,3.7973,3.4940,2.6739,2.0492],"고창군":[2.2204,3.0044,4.2054,4.9869,5.5762,5.2516,4.5234,4.7553,3.8799,3.2712,2.4830,1.9630],"고흥":[2.9118,3.8318,4.0853,4.9645,5.6417,5.2309,5.3340,5.4153,3.9880,3.3864,3.0467,2.7493],"광양시":[2.8825,3.6806,4.5141,5.1957,5.6777,5.4190,4.7859,5.0282,3.9895,3.7460,2.9935,2.6050],"광주":[2.6974,3.5090,4.5574,5.4562,5.9446,5.6148,4.7907,4.9664,4.1307,3.8047,3.0318,2.4173],"김해시":[2.5575,3.2822,3.9416,4.7568,5.2367,4.8898,4.3105,4.4062,3.3513,3.1535,2.6861,2.3829],"대관령":[2.7082,3.5801,4.3130,5.4097,5.9526,5.7679,4.8362,4.3624,3.7197,3.1065,2.7422,2.4575],"대구":[2.7621,3.5572,4.3937,5.2969,5.8685,5.6525,4.7900,4.8084,3.8271,3.4879,2.9008,2.5227],"대전":[2.5359,3.3955,4.4909,5.4517,6.1585,5.9723,4.9068,4.9170,4.2258,3.5726,2.8180,2.2757],"동두천":[2.3763,3.2260,4.1454,5.0339,5.5812,5.3916,4.4799,4.1502,4.0326,3.2816,2.5481,2.1640],"동해":[2.7593,4.0374,4.1182,5.6917,5.8805,6.1224,5.1464,5.2397,3.5473,2.3854,3.0302,2.4719],"목포":[2.4060,3.0901,4.1697,5.0437,5.5365,5.3176,4.7654,5.0136,4.0180,3.5570,2.7224,2.1705],"백령도":[2.3307,3.2872,4.6046,5.6845,5.8551,5.7132,5.3137,5.0190,4.6345,3.7357,2.4888,1.8805],"보령":[2.3332,3.4405,4.4010,5.1793,5.5457,5.8100,5.1252,5.5541,4.0475,2.9957,2.8405,2.1129],"보성군":[2.5430,3.1812,3.9996,4.6991,5.0800,4.8739,4.3169,4.7252,3.6442,3.4297,2.7174,2.4088],"부산":[2.9887,3.7519,4.3651,5.2459,5.9981,5.5173,5.0575,5.2438,3.9317,3.6172,3.0949,2.8129],"북강릉":[2.6451,3.4303,4.1236,5.1548,5.7184,5.5499,4.6539,4.1296,3.6567,2.8587,2.6151,2.3526],"북부산":[2.9810,3.7272,4.3758,5.1303,5.6460,5.5494,5.1439,5.4177,4.0486,3.4056,3.0299,2.8190],"북창원":[2.5222,3.2987,3.9724,4.7126,5.1987,4.8129,4.1413,4.2309,3.2430,3.2078,2.6865,2.3673],"북춘천":[2.5376,3.4455,4.1404,5.1613,5.7178,5.8143,4.8402,4.3802,4.0555,3.2234,2.5291,2.1659],"상주":[2.6302,3.4980,4.2619,5.2885,5.9489,5.9022,4.8993,4.8097,3.8829,3.4400,2.8240,2.4464],"서귀포":[2.9795,3.8403,3.9647,5.4844,5.4240,4.3828,4.8709,5.4865,4.8371,3.7336,3.0751,2.7355],"서산":[2.2760,3.2021,4.2095,5.0596,5.5553,5.3245,4.5910,4.4556,3.9210,3.3818,2.4586,1.9727],"서울":[2.3619,3.2525,4.1606,5.0483,5.6569,5.3567,4.2453,4.0775,4.0449,3.2626,2.5084,2.1520],"서청주":[2.4612,3.2072,4.3398,5.3592,5.8968,6.2298,5.0565,5.4145,4.1325,3.2839,2.8808,2.2346],"세종":[2.3539,3.2146,4.3270,5.0270,5.6243,5.9297,4.7684,5.1522,3.9583,3.1297,2.8019,2.1466],"속초":[2.5457,3.9815,4.0506,5.5976,5.8122,5.9930,4.9405,5.1738,3.4610,2.2906,2.6830,2.3281],"수원":[2.3483,3.1202,4.0328,4.9179,5.4658,5.3745,4.3963,4.2848,3.8585,3.2779,2.4905,2.1228],"순창군":[2.5122,3.3239,4.2890,5.0898,5.5870,5.3361,4.5785,4.7910,3.9147,3.4746,2.7467,2.2970],"안동":[2.7384,3.6133,4.3651,5.3961,6.0591,5.9701,5.0807,4.9614,3.9705,3.3889,2.8349,2.4840],"양산시":[2.3643,3.0546,3.7204,4.4469,4.8432,4.6067,4.1487,4.1384,3.1761,3.0303,2.5315,2.2361],"여수":[2.6126,3.3341,4.1838,4.8996,5.4085,5.1872,4.7134,4.9153,3.8730,3.5205,2.8479,2.3902],"영광군":[2.4095,3.2298,4.4643,5.3172,5.8562,5.6156,4.9835,5.2430,4.2369,3.6652,2.7635,2.0197],"완도":[2.8411,3.4941,4.0888,5.0764,5.6637,5.2015,5.6332,5.7164,4.2134,3.3449,2.9556,2.5541],"울릉도":[1.6005,2.1665,3.5904,4.7949,5.3445,4.9910,4.4544,4.0864,3.4637,2.5651,1.9515,1.4272],"울산":[2.9403,3.3331,4.4248,5.1929,5.6875,5.6258,5.3934,5.3454,3.8179,3.1079,3.0183,2.6977],"원주":[2.4897,3.3093,4.1397,5.0844,5.7139,5.7271,4.6948,4.4553,4.0219,3.3173,2.6231,2.1877],"의령군":[2.9091,3.7802,4.5294,5.2305,5.7690,5.5313,4.8368,5.0735,3.8252,3.6018,3.0455,2.7220],"인천":[2.3340,3.1500,4.1829,5.0069,5.5303,5.5203,4.7217,4.5541,4.0055,3.2625,2.4309,2.1039],"전주":[2.4860,3.3775,4.3407,5.2384,5.8162,5.5110,4.6956,4.7693,4.0465,3.5273,2.7248,2.2310],"정읍":[2.5649,3.3208,4.3414,5.1177,5.5184,5.5856,4.8092,5.2464,4.0778,3.0524,2.8862,2.2367],"제주":[1.6954,2.5822,3.9699,5.0741,5.5433,5.1311,5.1338,5.3167,3.6949,3.2501,2.5002,1.5850],"진주":[2.6412,3.3200,4.0174,4.8215,5.3850,5.2059,4.5855,4.7674,3.6202,3.5022,2.8918,2.5418],"창원":[2.8318,3.6297,4.3276,5.2102,5.7983,5.6062,4.9558,5.0475,3.7422,3.5627,2.9689,2.5897],"철원":[2.4116,3.2372,4.1997,5.2158,5.8962,5.8477,4.9922,4.5649,4.1945,3.3554,2.5470,2.1176],"청송군":[2.7109,3.5858,4.3008,5.3447,5.9327,5.7020,4.9320,4.8080,3.6966,3.1946,2.7847,2.5161],"청주":[2.4097,3.2716,4.1941,5.2400,5.9346,5.8047,4.8627,4.7086,4.1398,3.4259,2.6736,2.1456],"추풍령":[2.6136,3.4927,4.3430,5.2413,5.8788,5.7911,4.8212,4.8111,3.9013,3.4570,2.7773,2.3546],"춘천":[2.3295,3.1817,3.9194,4.9078,5.4384,5.5479,4.6337,4.3702,3.9086,3.0329,2.3616,2.0206],"충주":[2.3763,3.2671,4.0411,5.1902,6.0164,5.7288,4.7974,4.7309,4.1753,3.2009,2.6726,2.0397],"태백":[2.2395,3.9816,3.8003,5.3700,5.7083,5.8977,4.9849,4.6822,3.2747,2.0229,2.9466,2.1990],"통영":[3.0290,3.4709,4.3712,4.9548,5.4626,5.3742,4.8439,5.6005,4.2802,3.5852,3.1367,2.7535],"파주":[2.4734,3.2823,4.1970,5.1335,5.6050,5.4606,4.7148,4.4885,4.1325,3.3486,2.5946,2.2440],"포항":[2.5179,3.1996,3.9330,5.0310,5.6033,5.3942,4.4991,4.4769,3.3027,3.0269,2.5973,2.3938],"함양군":[2.7456,3.6276,4.5196,5.3448,5.9807,5.7755,4.9654,4.9716,3.8417,3.5362,2.8878,2.4819],"홍성":[2.4261,3.3147,4.3402,5.2785,5.8136,5.6399,4.7210,4.5099,4.0313,3.3986,2.5745,2.1048],"흑산도":[2.0853,3.0839,4.3499,5.2113,5.6817,5.1281,4.4415,5.0334,3.8118,3.4982,2.5715,1.8698]};
+const LAT={"강릉":37.7515,"강진군":34.6446,"경주시":35.8174,"고산":33.2938,"고창":35.3482,"고창군":35.4266,"고흥":34.6183,"광양시":34.9434,"광주":35.1729,"김해시":35.2298,"대관령":37.6771,"대구":35.8780,"대전":36.3720,"동두천":37.9019,"동해":37.5071,"목포":34.8173,"백령도":37.9740,"보령":36.3272,"보성군":34.7634,"부산":35.1047,"북강릉":37.8046,"북부산":35.2178,"북창원":35.2266,"북춘천":37.9474,"상주":36.4084,"서귀포":33.2462,"서산":36.7766,"서울":37.5714,"서청주":36.6399,"세종":36.4852,"속초":38.2509,"수원":37.2575,"순창군":35.3713,"안동":36.5729,"양산시":35.3074,"여수":34.7393,"영광군":35.2837,"완도":34.3959,"울릉도":37.4813,"울산":35.5824,"원주":37.3375,"의령군":35.3226,"인천":37.4777,"전주":35.8409,"정읍":35.5634,"제주":33.5141,"진주":35.1638,"창원":35.1702,"철원":38.1479,"청송군":36.4351,"청주":36.6392,"추풍령":36.2203,"춘천":37.9026,"충주":36.9705,"태백":37.1704,"통영":34.8454,"파주":37.8859,"포항":36.0320,"함양군":35.5114,"홍성":36.6576,"흑산도":34.6872};
+const LON={"강릉":128.8910,"강진군":126.7841,"경주시":129.2009,"고산":126.1628,"고창":126.5990,"고창군":126.6970,"고흥":127.2757,"광양시":127.6914,"광주":126.8916,"김해시":128.8908,"대관령":128.7183,"대구":128.6530,"대전":127.3721,"동두천":127.0607,"동해":129.1243,"목포":126.3815,"백령도":124.7124,"보령":126.5574,"보성군":127.2123,"부산":129.0320,"북강릉":128.8554,"북부산":128.9602,"북창원":128.6726,"북춘천":127.7544,"상주":128.1574,"서귀포":126.5653,"서산":126.4939,"서울":126.9658,"서청주":127.3846,"세종":127.2444,"속초":128.5647,"수원":126.9830,"순창군":127.1286,"안동":128.7073,"양산시":129.0201,"여수":127.7406,"영광군":126.4778,"완도":126.7018,"울릉도":130.8986,"울산":129.3347,"원주":127.9466,"의령군":128.2881,"인천":126.6249,"전주":127.1172,"정읍":126.8390,"제주":126.5297,"진주":128.0400,"창원":128.5728,"철원":127.3042,"청송군":129.0401,"청주":127.4407,"추풍령":127.9946,"춘천":127.7357,"충주":127.9525,"태백":128.9893,"통영":128.4356,"파주":126.7665,"포항":129.3800,"함양군":127.7454,"홍성":126.6877,"흑산도":125.4511};
+const CODE={"강릉":105,"강진군":259,"경주시":283,"고산":185,"고창":172,"고창군":251,"고흥":262,"광양시":266,"광주":156,"김해시":253,"대관령":100,"대구":143,"대전":133,"동두천":98,"동해":106,"목포":165,"백령도":102,"보령":235,"보성군":258,"부산":159,"북강릉":104,"북부산":296,"북창원":255,"북춘천":93,"상주":137,"서귀포":189,"서산":129,"서울":108,"서청주":181,"세종":239,"속초":90,"수원":119,"순창군":254,"안동":136,"양산시":257,"여수":168,"영광군":252,"완도":170,"울릉도":115,"울산":152,"원주":114,"의령군":263,"인천":112,"전주":146,"정읍":245,"제주":184,"진주":192,"창원":155,"철원":95,"청송군":276,"청주":131,"추풍령":135,"춘천":101,"충주":127,"태백":216,"통영":162,"파주":99,"포항":138,"함양군":264,"홍성":177,"흑산도":169};
+const P90={"강릉":0.9634,"강진군":0.9577,"경주시":0.9603,"고산":0.9386,"고창":0.9640,"고창군":0.9687,"고흥":null,"광양시":0.9637,"광주":0.9728,"김해시":0.9570,"대관령":0.9595,"대구":0.9679,"대전":0.9513,"동두천":0.9821,"동해":null,"목포":0.9621,"백령도":0.9762,"보령":null,"보성군":0.9607,"부산":0.9646,"북강릉":0.9733,"북부산":null,"북창원":0.9509,"북춘천":0.9883,"상주":0.9704,"서귀포":null,"서산":0.9784,"서울":0.9831,"서청주":null,"세종":null,"속초":null,"수원":0.9759,"순창군":0.9711,"안동":0.9641,"양산시":0.9713,"여수":0.9327,"영광군":0.9566,"완도":null,"울릉도":0.9549,"울산":0.9476,"원주":0.9860,"의령군":0.9684,"인천":0.9652,"전주":0.9662,"정읍":null,"제주":0.9412,"진주":0.9717,"창원":0.9578,"철원":0.9810,"청송군":0.9687,"청주":0.9781,"추풍령":0.9652,"춘천":0.9851,"충주":0.9865,"태백":null,"통영":0.9286,"파주":0.9828,"포항":0.9586,"함양군":0.9623,"홍성":0.9675,"흑산도":0.9393};
+const CVR={"강릉":0.0285,"강진군":0.0330,"경주시":0.0310,"고산":0.0479,"고창":0.0281,"고창군":0.0244,"고흥":null,"광양시":0.0283,"광주":0.0212,"김해시":0.0335,"대관령":0.0316,"대구":0.0251,"대전":0.0380,"동두천":0.0139,"동해":null,"목포":0.0296,"백령도":0.0186,"보령":null,"보성군":0.0306,"부산":0.0276,"북강릉":0.0209,"북부산":null,"북창원":0.0383,"북춘천":0.0091,"상주":0.0231,"서귀포":null,"서산":0.0168,"서울":0.0132,"서청주":null,"세종":null,"속초":null,"수원":0.0188,"순창군":0.0225,"안동":0.0280,"양산시":0.0224,"여수":0.0525,"영광군":0.0338,"완도":null,"울릉도":0.0352,"울산":0.0408,"원주":0.0109,"의령군":0.0247,"인천":0.0271,"전주":0.0264,"정읍":null,"제주":0.0459,"진주":0.0220,"창원":0.0329,"철원":0.0148,"청송군":0.0244,"청주":0.0171,"추풍령":0.0271,"춘천":0.0116,"충주":0.0105,"태백":null,"통영":0.0557,"파주":0.0134,"포항":0.0323,"함양군":0.0294,"홍성":0.0253,"흑산도":0.0473};
+const QUAL={"강릉":{y:10,m:12,s:"G",o:2},"강진군":{y:10,m:12,s:"G",o:56},"경주시":{y:10,m:12,s:"G",o:0},"고산":{y:10,m:12,s:"G",o:0},"고창":{y:10,m:12,s:"G",o:25},"고창군":{y:10,m:12,s:"G",o:0},"고흥":{y:3,m:12,s:"S",o:0},"광양시":{y:10,m:12,s:"G",o:0},"광주":{y:10,m:12,s:"G",o:0},"김해시":{y:10,m:12,s:"G",o:0},"대관령":{y:10,m:12,s:"G",o:1},"대구":{y:10,m:12,s:"G",o:0},"대전":{y:10,m:12,s:"G",o:0},"동두천":{y:7,m:12,s:"G",o:4},"동해":{y:3,m:12,s:"S",o:0},"목포":{y:10,m:12,s:"G",o:0},"백령도":{y:8,m:12,s:"G",o:1},"보령":{y:2,m:12,s:"S",o:0},"보성군":{y:10,m:12,s:"G",o:0},"부산":{y:10,m:12,s:"G",o:0},"북강릉":{y:10,m:12,s:"G",o:21},"북부산":{y:3,m:12,s:"S",o:27},"북창원":{y:10,m:12,s:"G",o:0},"북춘천":{y:10,m:12,s:"G",o:0},"상주":{y:7,m:12,s:"G",o:2},"서귀포":{y:2,m:12,s:"S",o:0},"서산":{y:10,m:12,s:"G",o:3},"서울":{y:10,m:12,s:"G",o:0},"서청주":{y:3,m:12,s:"S",o:0},"세종":{y:4,m:12,s:"S",o:0},"속초":{y:3,m:12,s:"S",o:0},"수원":{y:10,m:12,s:"G",o:0},"순창군":{y:10,m:12,s:"G",o:14},"안동":{y:10,m:12,s:"G",o:0},"양산시":{y:10,m:12,s:"G",o:0},"여수":{y:10,m:12,s:"G",o:0},"영광군":{y:10,m:12,s:"G",o:2},"완도":{y:3,m:12,s:"S",o:0},"울릉도":{y:10,m:12,s:"G",o:3},"울산":{y:3,m:12,s:"S",o:0},"원주":{y:10,m:12,s:"G",o:0},"의령군":{y:10,m:12,s:"G",o:0},"인천":{y:10,m:12,s:"G",o:0},"전주":{y:10,m:12,s:"G",o:0},"정읍":{y:3,m:12,s:"S",o:0},"제주":{y:10,m:12,s:"G",o:1},"진주":{y:10,m:12,s:"G",o:0},"창원":{y:10,m:12,s:"G",o:0},"철원":{y:7,m:12,s:"G",o:2},"청송군":{y:10,m:12,s:"G",o:0},"청주":{y:10,m:12,s:"G",o:0},"추풍령":{y:10,m:12,s:"G",o:0},"춘천":{y:10,m:12,s:"G",o:0},"충주":{y:5,m:12,s:"G",o:0},"태백":{y:3,m:12,s:"S",o:0},"통영":{y:3,m:12,s:"S",o:0},"파주":{y:7,m:12,s:"G",o:0},"포항":{y:10,m:12,s:"G",o:0},"함양군":{y:10,m:12,s:"G",o:0},"홍성":{y:10,m:12,s:"G",o:2},"흑산도":{y:10,m:12,s:"G",o:0}};
+const BIAS={"강릉":{v:"S",r:0.9529},"강진군":{v:"B",r:1.2400},"경주시":{v:"B",r:1.1572},"고산":{v:"B",r:1.2500},"고창":{v:"B",r:1.2293},"고창군":{v:"B",r:1.1606},"고흥":{v:"N",r:null},"광양시":{v:"S",r:0.9961},"광주":{v:"S",r:1.0127},"김해시":{v:"B",r:1.2680},"대관령":{v:"S",r:1.0541},"대구":{v:"S",r:1.0548},"대전":{v:"S",r:0.9388},"동두천":{v:"N",r:null},"동해":{v:"N",r:null},"목포":{v:"W",r:1.1332},"백령도":{v:"S",r:0.9495},"보령":{v:"N",r:null},"보성군":{v:"B",r:1.4673},"부산":{v:"W",r:1.1141},"북강릉":{v:"S",r:1.0538},"북부산":{v:"N",r:null},"북창원":{v:"B",r:1.2791},"북춘천":{v:"S",r:1.0708},"상주":{v:"N",r:null},"서귀포":{v:"N",r:null},"서산":{v:"W",r:1.1154},"서울":{v:"W",r:1.0862},"서청주":{v:"N",r:null},"세종":{v:"N",r:null},"속초":{v:"N",r:null},"수원":{v:"W",r:1.1082},"순창군":{v:"W",r:1.1239},"안동":{v:"S",r:1.0172},"양산시":{v:"B",r:1.5883},"여수":{v:"B",r:1.2194},"영광군":{v:"S",r:0.9893},"완도":{v:"N",r:null},"울릉도":{v:"B",r:1.5007},"울산":{v:"N",r:null},"원주":{v:"S",r:1.0040},"의령군":{v:"S",r:1.0350},"인천":{v:"W",r:1.1152},"전주":{v:"S",r:0.9426},"정읍":{v:"N",r:null},"제주":{v:"S",r:0.9970},"진주":{v:"B",r:1.2528},"창원":{v:"S",r:0.9529},"철원":{v:"N",r:null},"청송군":{v:"S",r:1.0612},"청주":{v:"S",r:1.0459},"추풍령":{v:"S",r:1.0328},"춘천":{v:"S",r:1.0613},"충주":{v:"N",r:null},"태백":{v:"N",r:null},"통영":{v:"N",r:null},"파주":{v:"N",r:null},"포항":{v:"B",r:1.2128},"함양군":{v:"S",r:1.0306},"홍성":{v:"S",r:0.9916},"흑산도":{v:"S",r:1.0183}};
+const VERD={S:["안정","최근5년과 2016~19년 관측이 정합합니다"],W:["주의","최근5년이 다소 높습니다(편향비 1.08~1.15). 결과를 보수적으로 해석하십시오"],B:["계기 편향 의심","2016~19년 대비 최근5년이 15% 이상 높습니다. 최근5년 기준 사용을 권장합니다"],N:["판정 불가","관측연수가 짧아 편향 판정을 할 수 없습니다"]};
+const STATE={G:["양호","10년 중 7년 이상 관측"],S:["단기 관측","관측연수 5년 미만 — 기후 대표성이 낮습니다"],P:["부분 자료","월 자료가 일부 비어 있습니다"]};
+const DAYS=[31,28.25,31,30,31,30,31,31,30,31,30,31];
+const MID=[17,47,75,105,135,162,198,228,258,288,318,344];
+const MONTH=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const GSC=0.0820, STEPS=96;
+
+const $=id=>document.getElementById(id);
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const nv=id=>Number($(id).value);
+const fmt=(v,d=0)=>Number(v).toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const energy=v=>v>=1e6?fmt(v/1e6,2)+' GWh':v>=1e3?fmt(v/1e3,1)+' MWh':fmt(v,0)+' kWh';
+let mode='simple', showP90=false, S={};
+
+/* ═══════════ 물리 (엑셀 워크북과 동일) ═══════════ */
+function decl(doy){                     // Spencer(1971) — v03 워크북과 동일
+  const B=2*Math.PI*(doy-1)/365;
+  return { d: 0.006918-0.399912*Math.cos(B)+0.070257*Math.sin(B)-0.006758*Math.cos(2*B)
+            +0.000907*Math.sin(2*B)-0.002697*Math.cos(3*B)+0.001480*Math.sin(3*B),
+           e0: 1.000110+0.034221*Math.cos(B)+0.001280*Math.sin(B)
+            +0.000719*Math.cos(2*B)+0.000077*Math.sin(2*B) };
+}
+function h0ws(doy,lat){
+  const p=rad(lat), {d,e0}=decl(doy);
+  const w=Math.acos(clamp(-Math.tan(p)*Math.tan(d),-1,1));
+  const h0=(24*60/Math.PI)*GSC*e0*(Math.cos(p)*Math.cos(d)*Math.sin(w)+w*Math.sin(p)*Math.sin(d))/3.6;
+  return {h0:Math.max(h0,0.001), ws:deg(w), dec:d};
+}
+function rbCalc(doy,lat,tilt,azi){
+  const p=rad(lat), d=decl(doy).d, b=rad(tilt), g=rad(azi);
+  const nE=Math.sin(b)*Math.sin(g), nN=Math.sin(b)*Math.cos(g), nU=Math.cos(b);
+  let num=0, den=0;
+  for(let s=1;s<=STEPS;s++){
+    const w=rad(15*((s-0.5)*0.25-12));
+    const sE=-Math.cos(d)*Math.sin(w);
+    const sN=Math.cos(p)*Math.sin(d)-Math.sin(p)*Math.cos(d)*Math.cos(w);
+    const sU=Math.sin(p)*Math.sin(d)+Math.cos(p)*Math.cos(d)*Math.cos(w);
+    if(sU>0){ den+=sU; num+=Math.max(sE*nE+sN*nN+sU*nU,0); }
+  }
+  return den>0?num/den:0;
+}
+function erbs(kt,ws){
+  const k=clamp(kt,0.30,0.80);
+  return ws<=81.4 ? 1.391-3.560*k+4.189*k*k-2.137*k*k*k
+                  : 1.311-3.022*k+3.427*k*k-1.821*k*k*k;
+}
+function poaMonth(ghi,lat,tilt,azi,alb,i){
+  const {h0,ws}=h0ws(MID[i],lat);
+  const kt=ghi/h0, fd=erbs(kt,ws), hd=ghi*fd, hb=ghi-hd;
+  const rb=rbCalc(MID[i],lat,tilt,azi), cb=Math.cos(rad(tilt));
+  const beam=hb*rb, sky=hd*(1+cb)/2, gnd=ghi*alb*(1-cb)/2;
+  const poa=Math.max(0,beam+sky+gnd);
+  return {h0,kt,fd,hd,hb,rb,beam,sky,gnd,poa,factor:ghi>0?poa/ghi:0};
+}
+function annualPOA(ghiArr,lat,tilt,azi,alb){
+  let t=0; for(let i=0;i<12;i++) t+=poaMonth(ghiArr[i],lat,tilt,azi,alb,i).poa*DAYS[i];
+  return t;
+}
+function prValue(){
+  if(mode==='simple') return clamp(nv('pr')/100,0.01,1);
+  let r=1; document.querySelectorAll('.ls').forEach(e=>{r*=1-clamp(Number(e.value),0,100)/100});
+  return clamp(r,0.01,1);
+}
+const perf=(y,a,b)=>clamp(1-a-b*(y-1),0,1);
+
+function validate(){
+  const y=Math.round(nv('years')), q=Math.round(nv('qy'));
+  const c=[[nv('cap')>0,'설치용량은 0보다 커야 합니다.'],
+    [nv('tilt')>=0&&nv('tilt')<=90,'경사각은 0–90° 범위입니다.'],
+    [nv('azimuth')>=0&&nv('azimuth')<360,'방위각은 0° 이상 360° 미만입니다.'],
+    [nv('albedo')>=0&&nv('albedo')<=1,'지면반사율은 0–1 범위입니다.'],
+    [nv('curt')>=0&&nv('curt')<100,'출력제한률은 0–100% 범위입니다.'],
+    [y>=1&&y<=40,'종료연차는 1–40년 범위입니다.'],
+    [q>=1&&q<=y,'조회연차는 1년차부터 종료연차 사이여야 합니다.'],
+    [perf(y,nv('d1')/100,nv('d2')/100)>0,'종료연차 성능계수가 0 이하입니다. 저하율 또는 연차를 조정하세요.']];
+  const bad=c.find(x=>!x[0]);
+  $('err').style.display=bad?'block':'none'; $('err').textContent=bad?bad[1]:'';
+  return !bad;
+}
+
+/* ═══════════ 계산 ═══════════ */
+function compute(){
+  if(!validate()) return null;
+  const reg=$('region').value, basis=$('basis').value;
+  const ghi=(basis==='new'?D_NEW:D_OLD)[reg];
+  const lat=$('lat').value===''?LAT[reg]:nv('lat');
+  const tilt=nv('tilt'), azi=nv('azimuth'), alb=nv('albedo');
+  const cap=nv('cap'), pr=prValue(), curt=nv('curt')/100;
+  const a=nv('d1')/100, b=nv('d2')/100;
+  const ny=Math.round(nv('years')), qy=Math.round(nv('qy'));
+  const p90=P90[reg]||1, f=(showP90&&P90[reg])?p90:1;
+
+  const M=[]; let ghiY=0, poaY=0;
+  for(let i=0;i<12;i++){
+    const r=poaMonth(ghi[i],lat,tilt,azi,alb,i);
+    const poaM=r.poa*DAYS[i];
+    M.push({m:i+1,days:DAYS[i],ghi:ghi[i],poa:r.poa,factor:r.factor,rb:r.rb,kt:r.kt,fd:r.fd,poaM});
+    ghiY+=ghi[i]*DAYS[i]; poaY+=poaM;
+  }
+  const qf=perf(qy,a,b);
+  M.forEach(x=>{ x.gen=x.poaM*cap*pr*(1-curt)*qf*f; x.eq=x.gen/cap/x.days; });
+  const genQ=M.reduce((s,x)=>s+x.gen,0);
+  M.forEach(x=>x.share=genQ>0?x.gen/genQ:0);
+
+  const Y=[]; let cum=0;
+  for(let y=1;y<=ny;y++){
+    const pf=perf(y,a,b), g=poaY*cap*pr*(1-curt)*pf*f;
+    cum+=g; Y.push({y,pf,deg:1-pf,gen:g,eq:g/cap/365,cum});
+  }
+  const tilts=[],azis=[];
+  for(let t=0;t<=60;t+=5) tilts.push({t,poa:annualPOA(ghi,lat,t,180,alb)});
+  const bestT=tilts.reduce((p,c)=>c.poa>p.poa?c:p);
+  for(let z=90;z<=270;z+=15) azis.push({a:z,poa:annualPOA(ghi,lat,bestT.t,z,alb)});
+
+  return {reg,basis,ghi,lat,tilt,azi,alb,cap,pr,curt,a,b,ny,qy,qf,p90,f,
+          M,Y,ghiY,poaY,genQ,gen1:Y[0].gen,genN:Y[ny-1].gen,cum:Y[ny-1].cum,
+          factor:ghiY>0?poaY/ghiY:0,tilts,azis,bestT};
+}
+
+/* ═══════════ 렌더 ═══════════ */
+function render(){
+  const s=compute(); if(!s) return; S=s;
+  const tag=showP90?' · P90':'';
+  $('k1').textContent=energy(s.gen1); $('k1s').textContent=`PR ${fmt(s.pr*100,1)}% · 성능계수 ${fmt(perf(1,s.a,s.b)*100,2)}%${tag}`;
+  $('k2').textContent=energy(s.genQ); $('k2s').textContent=`${s.qy}년차 · 성능계수 ${fmt(s.qf*100,2)}%`;
+  $('k3').textContent=energy(s.genN); $('k3s').textContent=`${s.ny}년차 · 성능계수 ${fmt(perf(s.ny,s.a,s.b)*100,2)}%`;
+  $('k4').textContent=energy(s.cum);  $('k4s').textContent=`${s.ny}년 누적 · 연평균 ${energy(s.cum/s.ny)}`;
+  $('k5').textContent=fmt(s.Y[0].eq,2)+' h/일';
+  $('k6').textContent=fmt(s.factor,3); $('k6s').textContent=`경사 ${fmt(s.tilt,0)}° · ${dirName(s.azi)}`;
+  $('chipBasis').textContent=s.basis==='new'?'2021–2025':'2016–2025';
+  $('mSub').textContent=`${s.qy}년차 기준 · 성능계수 ${fmt(s.qf*100,2)}% 적용${tag}`;
+  $('ySub').textContent=`1–${s.ny}년차 · 모듈 성능저하 반영${tag}`;
+  $('srcLat').textContent=fmt(s.lat,3)+'°';
+  $('srcStn').textContent=`${s.reg} · ${fmt(LON[s.reg],3)}°E`;
+  $('srcCode').textContent=CODE[s.reg];
+  const Q=QUAL[s.reg], BV=BIAS[s.reg];
+  $('srcQual').textContent=`${STATE[Q.s][0]} · 관측 ${Q.y}년`;
+  $('srcBias').textContent=VERD[BV.v][0];
+  $('srcRatio').textContent=BV.r?`편향비 ${fmt(BV.r,3)}`:'산출 불가';
+  const _sc={G:'g',S:'w',P:'w'}[Q.s], _bc={S:'g',W:'w',B:'b',N:''}[BV.v];
+  $('qbadge').innerHTML=`<span class="${_sc}">${STATE[Q.s][0]}</span><span>관측 ${Q.y}년</span>`
+    +`<span class="${_bc}">${VERD[BV.v][0]}</span>`
+    +(BV.r?`<span>편향비 ${fmt(BV.r,3)}</span>`:'')
+    +(Q.o?`<span>Kt&gt;0.85 ${Q.o}일</span>`:'')
+    +(P90[s.reg]?'':'<span class="w">P90 산출 불가</span>');
+  $('srcGhi').textContent=fmt(s.ghiY,0);
+  $('srcP90').textContent=P90[s.reg]?fmt(P90[s.reg],3):'—';
+  $('srcP90').nextElementSibling.innerHTML=P90[s.reg]
+    ?`P90 계수<br>연변동성 CV ${fmt(CVR[s.reg]*100,2)}%`
+    :'P90 계수<br>관측연수 부족으로 산출 불가';
+  $('prCalc').textContent=fmt(prValue()*100,1)+'%';
+
+  $('mBody').innerHTML=s.M.map(x=>`<tr><td>${MONTH[x.m-1]}</td><td>${fmt(x.days,2)}</td><td>${fmt(x.ghi,3)}</td><td>${fmt(x.poa,3)}</td><td>${fmt(x.factor,3)}</td><td>${fmt(x.poaM,1)}</td><td>${fmt(x.gen,0)}</td><td>${fmt(x.eq,2)}</td><td>${fmt(x.share*100,1)}%</td></tr>`).join('');
+  $('mFoot').innerHTML=`<tr><td>연간</td><td>365.25</td><td>${fmt(s.ghiY,0)}</td><td>${fmt(s.poaY,0)}</td><td>${fmt(s.factor,3)}</td><td>${fmt(s.poaY,1)}</td><td>${fmt(s.genQ,0)}</td><td>${fmt(s.genQ/s.cap/365,2)}</td><td>100%</td></tr>`;
+  $('yBody').innerHTML=s.Y.map(x=>`<tr><td>${x.y}년차</td><td>${fmt(x.pf*100,2)}%</td><td>${fmt(x.deg*100,2)}%</td><td>${fmt(x.gen,0)}</td><td>${fmt(x.eq,2)}</td><td>${fmt(x.cum,0)}</td></tr>`).join('');
+  const L=s.Y[s.Y.length-1];
+  $('yFoot').innerHTML=`<tr><td>${s.ny}년 합계</td><td>${fmt(L.pf*100,2)}%</td><td>${fmt(L.deg*100,2)}%</td><td>${fmt(L.cum,0)}</td><td>${fmt(L.cum/s.cap/365/s.ny,2)}</td><td>${fmt(L.cum,0)}</td></tr>`;
+
+  drawMonth(s); drawYear(s); drawTilt(s); drawAzi(s);
+
+  const best=s.M.reduce((p,c)=>c.gen>p.gen?c:p), worst=s.M.reduce((p,c)=>c.gen<p.gen?c:p);
+  $('sBest').textContent=`${MONTH[best.m-1]} · ${energy(best.gen)}`;
+  $('sPr').textContent=fmt(s.pr*100,1)+'%'+(mode==='detail'?' (상세)':'');
+  $('sDeg').textContent=`${s.ny}년차 ${fmt(perf(s.ny,s.a,s.b)*100,2)}%`;
+  $('sumT').textContent=`${s.reg} · ${fmt(s.cap,1)} kWp · ${s.ny}년 분석`;
+  $('sumP').textContent=`${'지점 '+CODE[s.reg]} 관측소의 ${s.basis==='new'?'2021–2025':'2016–2025'} 검증 일사량(연간 ${fmt(s.ghiY,0)} kWh/㎡)을 사용했습니다. 경사각 ${fmt(s.tilt,0)}°, ${dirName(s.azi)}(방위각 ${fmt(s.azi,1)}°) 조건의 연간 경사면 일사량은 ${fmt(s.poaY,0)} kWh/㎡로 수평면 대비 ${fmt(s.factor,3)}배입니다. PR ${fmt(s.pr*100,1)}%와 1년차 성능저하 ${fmt(s.a*100,2)}%를 반영한 1년차 예상 발전량은 ${energy(s.gen1)}, 예상 등가발전시간은 ${fmt(s.Y[0].eq,2)}시간/일입니다. ${s.ny}년차 성능계수는 ${fmt(perf(s.ny,s.a,s.b)*100,2)}%이며 누적 예상 발전량은 ${energy(s.cum)}입니다. 월별로는 ${MONTH[best.m-1]}이 가장 높고 ${MONTH[worst.m-1]}이 가장 낮습니다. 이 지역의 최적 경사각은 ${s.bestT.t}°이며 현재 설정은 그 대비 ${fmt((s.poaY/s.bestT.poa-1)*100,2)}%입니다.`;
+}
+function dirName(a){return ['북','북동','동','남동','남','남서','서','북서'][Math.round((a%360)/45)%8]+'향';}
+
+/* ═══════════ 차트 ═══════════ */
+function axis(W,H,m,max,min,ticks,unit){
+  let s='',ch=H-m.t-m.b;
+  for(let i=0;i<=ticks;i++){
+    const y=m.t+ch*i/ticks, v=max-(max-min)*i/ticks;
+    s+=`<line x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    s+=`<text x="${m.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="var(--ink3)">${fmt(v,v>=100?0:1)}</text>`;
+  }
+  s+=`<text x="2" y="12" font-size="10.5" fill="var(--ink3)">${unit}</text>`;
+  return s;
+}
+function drawMonth(s){
+  const W=1000,H=300,m={l:56,r:52,t:20,b:34},cw=W-m.l-m.r,ch=H-m.t-m.b;
+  const gmax=Math.max(...s.M.map(x=>x.gen))*1.16||1;
+  const pmax=Math.max(...s.M.map(x=>x.poa))*1.16||1;
+  let g=`<rect width="${W}" height="${H}" fill="transparent"/>`+axis(W,H,m,gmax/1000,0,4,'MWh');
+  const slot=cw/12,bw=Math.min(38,slot*.5);
+  s.M.forEach((x,i)=>{
+    const cx=m.l+i*slot+slot/2, h=ch*x.gen/gmax, y=m.t+ch-h;
+    g+=`<rect class="bar" data-l="${MONTH[i]} 예상 발전량" data-v="${fmt(x.gen,0)} kWh" x="${cx-bw/2}" y="${y}" width="${bw}" height="${Math.max(h,0)}" rx="3" fill="var(--teal)" opacity=".9"/>`;
+    g+=`<text x="${cx}" y="${H-14}" text-anchor="middle" font-size="10.5" fill="var(--ink3)">${i+1}</text>`;
+  });
+  const pts=s.M.map((x,i)=>`${m.l+i*slot+slot/2},${m.t+ch-ch*x.poa/pmax}`).join(' ');
+  g+=`<polyline points="${pts}" fill="none" stroke="var(--sun)" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s.M.forEach((x,i)=>{
+    g+=`<circle class="bar" data-l="${MONTH[i]} 경사면 일사량" data-v="${fmt(x.poa,3)} kWh/㎡/일" cx="${m.l+i*slot+slot/2}" cy="${m.t+ch-ch*x.poa/pmax}" r="3.6" fill="var(--sun)"/>`;
+  });
+  for(let i=0;i<=4;i++){
+    const y=m.t+ch*i/4, v=pmax-pmax*i/4;
+    g+=`<text x="${W-m.r+8}" y="${y+4}" font-size="10.5" fill="var(--sun)">${fmt(v,1)}</text>`;
+  }
+  g+=`<text x="${W-m.r+8}" y="12" font-size="10.5" fill="var(--sun)">kWh/㎡/일</text>`;
+  $('mChart').innerHTML=g; tip('#mChart .bar');
+}
+function drawYear(s){
+  const W=1000,H=320,m={l:58,r:56,t:20,b:36},cw=W-m.l-m.r,ch=H-m.t-m.b;
+  const gs=s.Y.map(x=>x.gen), gmax=Math.max(...gs)*1.04, gmin=Math.min(...gs)*0.9;
+  const cmax=s.Y[s.Y.length-1].cum*1.04||1;
+  const X=i=>s.Y.length===1?m.l+cw/2:m.l+cw*i/(s.Y.length-1);
+  const Y1=v=>m.t+ch-(v-gmin)/(gmax-gmin||1)*ch;
+  const Y2=v=>m.t+ch-v/cmax*ch;
+  let g=`<rect width="${W}" height="${H}" fill="transparent"/>`+axis(W,H,m,gmax/1000,gmin/1000,4,'MWh');
+  g+=`<polyline points="${s.Y.map((x,i)=>`${X(i)},${Y2(x.cum)}`).join(' ')}" fill="none" stroke="var(--sun)" stroke-width="2.2" stroke-dasharray="6 4"/>`;
+  g+=`<polyline points="${s.Y.map((x,i)=>`${X(i)},${Y1(x.gen)}`).join(' ')}" fill="none" stroke="var(--teal)" stroke-width="2.8"/>`;
+  const st=Math.max(1,Math.ceil(s.Y.length/12));
+  s.Y.forEach((x,i)=>{
+    g+=`<circle class="pt" data-l="${x.y}년차 연간 예상" data-v="${fmt(x.gen,0)} kWh · 성능계수 ${fmt(x.pf*100,2)}%" cx="${X(i)}" cy="${Y1(x.gen)}" r="3.8" fill="var(--teal)"/>`;
+    g+=`<circle class="pt" data-l="${x.y}년차 누적 예상" data-v="${fmt(x.cum,0)} kWh" cx="${X(i)}" cy="${Y2(x.cum)}" r="3" fill="var(--sun)" opacity=".85"/>`;
+    if(i===0||i===s.Y.length-1||i%st===0) g+=`<text x="${X(i)}" y="${H-14}" text-anchor="middle" font-size="10.5" fill="var(--ink3)">${x.y}</text>`;
+  });
+  for(let i=0;i<=4;i++){
+    const y=m.t+ch*i/4, v=(cmax-cmax*i/4)/1000;
+    g+=`<text x="${W-m.r+8}" y="${y+4}" font-size="10.5" fill="var(--sun)">${fmt(v,0)}</text>`;
+  }
+  g+=`<text x="${W-m.r+8}" y="12" font-size="10.5" fill="var(--sun)">누적 MWh</text>`;
+  $('yChart').innerHTML=g; tip('#yChart .pt');
+}
+function sweep(id,data,xk,label,color,cur,title){
+  const W=500,H=280,m={l:56,r:14,t:30,b:38},cw=W-m.l-m.r,ch=H-m.t-m.b;
+  const vs=data.map(d=>d.poa), mx=Math.max(...vs)*1.02, mn=Math.min(...vs)*0.97;
+  const X=i=>m.l+cw*i/(data.length-1), Y=v=>m.t+ch-(v-mn)/(mx-mn||1)*ch;
+  let g=`<rect width="${W}" height="${H}" fill="transparent"/>`;
+  g+=`<text x="0" y="14" font-size="12" font-weight="700" fill="var(--ink)">${title}</text>`;
+  for(let i=0;i<=4;i++){
+    const y=m.t+ch*i/4, v=mx-(mx-mn)*i/4;
+    g+=`<line x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}" stroke="var(--line)"/>`;
+    g+=`<text x="${m.l-7}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--ink3)">${fmt(v,0)}</text>`;
+  }
+  g+=`<polyline points="${data.map((d,i)=>`${X(i)},${Y(d.poa)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.6"/>`;
+  const bi=vs.indexOf(Math.max(...vs));
+  data.forEach((d,i)=>{
+    const on=Math.abs(d[xk]-cur)<0.01;
+    g+=`<circle class="sw" data-l="${label} ${d[xk]}°" data-v="${fmt(d.poa,0)} kWh/㎡/yr" cx="${X(i)}" cy="${Y(d.poa)}" r="${on?5.5:3.2}" fill="${on?'var(--ink)':color}"/>`;
+    if(i===bi) g+=`<text x="${X(i)}" y="${Y(d.poa)-11}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${color}">최적 ${d[xk]}°</text>`;
+    if(i%2===0) g+=`<text x="${X(i)}" y="${H-14}" text-anchor="middle" font-size="10" fill="var(--ink3)">${d[xk]}</text>`;
+  });
+  g+=`<text x="${m.l-7}" y="${m.t-6}" text-anchor="end" font-size="9.5" fill="var(--ink3)">kWh/㎡</text>`;
+  $(id).innerHTML=g; tip('#'+id+' .sw');
+}
+const drawTilt=s=>sweep('tChart',s.tilts,'t','경사각','var(--teal)',s.tilt,'경사각별 연간 경사면 일사량 (남향)');
+const drawAzi=s=>sweep('aChart',s.azis,'a','방위각','var(--sun)',s.azi,`방위각별 연간 경사면 일사량 (경사 ${s.bestT.t}°)`);
+function tip(sel){
+  const t=$('tt');
+  document.querySelectorAll(sel).forEach(el=>{
+    el.style.cursor='pointer';
+    el.addEventListener('mousemove',e=>{t.style.display='block';t.style.left=(e.clientX+13)+'px';t.style.top=(e.clientY-36)+'px';t.textContent=`${el.dataset.l}: ${el.dataset.v}`});
+    el.addEventListener('mouseleave',()=>t.style.display='none');
+  });
+}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400);}
+
+/* ═══════════ ZIP (store) ═══════════ */
+const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRCT[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zip(files){
+  const enc=new TextEncoder(), parts=[], cds=[]; let off=0;
+  const u16=v=>[v&255,(v>>>8)&255];
+  const u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+  for(const f of files){
+    const name=enc.encode(f.name);
+    const data=typeof f.data==='string'?enc.encode(f.data):f.data;
+    const c=crc32(data);
+    const lh=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+      ...u32(c),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+    parts.push(lh,name,data);
+    cds.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+      ...u32(c),...u32(data.length),...u32(data.length),...u16(name.length),
+      ...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]));
+    cds.push(name);
+    off+=lh.length+name.length+data.length;
+  }
+  let cdLen=0; for(const a of cds) cdLen+=a.length;
+  const n=files.length;
+  const eocd=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(n),...u16(n),...u32(cdLen),...u32(off),...u16(0)]);
+  const all=parts.concat(cds,[eocd]);
+  let total=0; for(const a of all) total+=a.length;
+  const out=new Uint8Array(total);
+  let p=0; for(const a of all){ out.set(a,p); p+=a.length; }
+  return out;
+}
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+function dl(bytes,name,mime){
+  const u=URL.createObjectURL(new Blob([bytes],{type:mime}));
+  const a=document.createElement('a'); a.href=u; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
+
+/* ═══════════ XLSX ═══════════ */
+function colName(n){let s='';while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=(n-r-1)/26;}return s;}
+function sheetXml(rows){
+  let o='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="16" customWidth="1"/><col min="2" max="20" width="16" customWidth="1"/></cols><sheetData>';
+  rows.forEach((row,ri)=>{
+    o+=`<row r="${ri+1}">`;
+    row.forEach((v,ci)=>{
+      if(v===null||v===undefined||v==='') return;
+      const ref=colName(ci+1)+(ri+1);
+      if(typeof v==='number'&&isFinite(v)) o+=`<c r="${ref}" s="${ri===0?1:2}"><v>${v}</v></c>`;
+      else o+=`<c r="${ref}" s="${ri===0?1:0}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
+    });
+    o+='</row>';
+  });
+  return o+'</sheetData></worksheet>';
+}
+const XLSTYLES='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts><fonts count="2"><font><sz val="10"/><name val="Malgun Gothic"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Malgun Gothic"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F6675"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+function buildXlsx(sheets){
+  const n=sheets.length, f=[];
+  let ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>';
+  for(let i=1;i<=n;i++) ct+=`<Override PartName="/xl/worksheets/sheet${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  ct+='</Types>';
+  let wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>';
+  sheets.forEach((s,i)=>{wb+=`<sheet name="${esc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`});
+  wb+='</sheets></workbook>';
+  let wr='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+  for(let i=1;i<=n;i++) wr+=`<Relationship Id="rId${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i}.xml"/>`;
+  wr+=`<Relationship Id="rId${n+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  f.push({name:'[Content_Types].xml',data:ct});
+  f.push({name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'});
+  f.push({name:'xl/workbook.xml',data:wb});
+  f.push({name:'xl/_rels/workbook.xml.rels',data:wr});
+  f.push({name:'xl/styles.xml',data:XLSTYLES});
+  sheets.forEach((s,i)=>f.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows)}));
+  return zip(f);
+}
+function exportXlsx(){
+  const s=S; if(!s.M) return;
+  const basis=s.basis==='new'?'2021-2025':'2016-2025';
+  const sheets=[
+    {name:'입력조건',rows:[['항목','값','단위'],
+      ['분석 지역',s.reg,''],['지점코드',CODE[s.reg],''],['경도',LON[s.reg],'°E'],['관측연수',QUAL[s.reg].y,'년'],['자료상태',STATE[QUAL[s.reg].s][0],''],['계기편향 판정',VERD[BIAS[s.reg].v][0],''],['편향비',BIAS[s.reg].r,'최근5년÷2016~19'],['일사량 기준',basis,''],
+      ['적용 위도',s.lat,'°N'],['P90 계수',P90[s.reg]||'산출불가',''],['경사각',s.tilt,'°'],['방위각',s.azi,'°'],['방위',dirName(s.azi),''],
+      ['지면반사율',s.alb,''],['설치용량',s.cap,'kWp'],['시스템 PR',s.pr,''],['출력제한률',s.curt,''],
+      ['1년차 저하율',s.a,''],['2년차 이후 저하율',s.b,''],['분석 종료연차',s.ny,'년'],['조회연차',s.qy,'년'],
+      ['P90 계수',s.p90,''],['표시 기준',showP90?'P90':'P50',''],
+      ['연간 수평면 일사량',s.ghiY,'kWh/m2/yr'],['연간 경사면 일사량',s.poaY,'kWh/m2/yr'],
+      ['경사면 보정계수',s.factor,''],['최적 경사각',s.bestT.t,'°'],
+      ['','',''],['자료 출처','기상청 API허브 sun_sfc_day.php (SI DAY)',''],
+      ['환산','1 kWh/m2 = 3.6 MJ/m2',''],
+      ['비고','모든 발전량은 PR과 모듈 성능저하가 반영된 예상값입니다','']]},
+    {name:'월별 예상발전량',rows:[['월','일수','수평면 일사량(kWh/m2/일)','경사면 일사량(kWh/m2/일)','보정계수','경사면 월합(kWh/m2)','예상 발전량(kWh)','예상 등가시간(h/일)','구성비'],
+      ...s.M.map(x=>[MONTH[x.m-1],x.days,x.ghi,x.poa,x.factor,x.poaM,x.gen,x.eq,x.share]),
+      ['연간',365.25,s.ghiY,s.poaY,s.factor,s.poaY,s.genQ,s.genQ/s.cap/365,1]]},
+    {name:'연도별 예상발전량',rows:[['연차','모듈 성능계수','누적 성능저하율','연간 예상 발전량(kWh)','예상 등가시간(h/일)','누적 예상 발전량(kWh)'],
+      ...s.Y.map(x=>[x.y+'년차',x.pf,x.deg,x.gen,x.eq,x.cum])]},
+    {name:'월별 상세계산',rows:[['월','대표일 DOY','대기권외 H0(kWh/m2/일)','청명지수 Kt','산란비 Hd/H','산란 Hd','직달 Hb','기하계수 Rb','경사면 POA(kWh/m2/일)'],
+      ...s.M.map((x,i)=>{const r=poaMonth(x.ghi,s.lat,s.tilt,s.azi,s.alb,i);
+        return [MONTH[i],MID[i],r.h0,r.kt,r.fd,r.hd,r.hb,r.rb,r.poa];})]},
+    {name:'경사방위 시나리오',rows:[['구분','각도(°)','연간 경사면 일사량(kWh/m2)','현재 대비'],
+      ...s.tilts.map(t=>['경사각 남향',t.t,t.poa,t.poa/s.poaY-1]),
+      ['','','',''],
+      ...s.azis.map(a=>[`방위각 (경사 ${s.bestT.t}°)`,a.a,a.poa,a.poa/s.azis.find(z=>z.a===180).poa-1])]},
+  ];
+  dl(buildXlsx(sheets),`태양광_예상발전량_${s.reg}_${new Date().toISOString().slice(0,10)}.xlsx`,
+     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('엑셀 파일을 내려받았습니다');
+}
+
+/* ═══════════ PPTX ═══════════ */
+const THEME='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements><a:clrScheme name="C"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="0F6675"/></a:dk2><a:lt2><a:srgbClr val="EEF3F4"/></a:lt2><a:accent1><a:srgbClr val="0F6675"/></a:accent1><a:accent2><a:srgbClr val="C98A16"/></a:accent2><a:accent3><a:srgbClr val="4C8FA0"/></a:accent3><a:accent4><a:srgbClr val="7BA7B4"/></a:accent4><a:accent5><a:srgbClr val="A8C4CB"/></a:accent5><a:accent6><a:srgbClr val="D6E3E6"/></a:accent6><a:hlink><a:srgbClr val="0F6675"/></a:hlink><a:folHlink><a:srgbClr val="7BA7B4"/></a:folHlink></a:clrScheme><a:fontScheme name="F"><a:majorFont><a:latin typeface="Malgun Gothic"/><a:ea typeface="Malgun Gothic"/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Malgun Gothic"/><a:ea typeface="Malgun Gothic"/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="S"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>';
+const MASTER='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>';
+const LAYOUT='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>';
+function pTxt(id,x,y,cx,cy,lines,align){
+  const ps=lines.map(([t,sz,b,c])=>`<a:p><a:pPr algn="${align||'l'}"/><a:r><a:rPr lang="ko-KR" sz="${sz}" b="${b?1:0}" dirty="0"><a:solidFill><a:srgbClr val="${c}"/></a:solidFill><a:latin typeface="Malgun Gothic"/><a:ea typeface="Malgun Gothic"/></a:rPr><a:t>${esc(t)}</a:t></a:r></a:p>`).join('');
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="T${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/>${ps}</p:txBody></p:sp>`;
+}
+function pRect(id,x,y,cx,cy,fill){
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="R${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>`;
+}
+function slideXml(sh){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'+sh.join('')+'</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
+}
+function buildPptx(slides){
+  const n=slides.length, f=[];
+  let ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>';
+  for(let i=1;i<=n;i++) ct+=`<Override PartName="/ppt/slides/slide${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+  ct+='</Types>';
+  let pres='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>';
+  for(let i=1;i<=n;i++) pres+=`<p:sldId id="${255+i}" r:id="rId${i+1}"/>`;
+  pres+='</p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>';
+  let pr='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>';
+  for(let i=1;i<=n;i++) pr+=`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i}.xml"/>`;
+  pr+=`<Relationship Id="rId${n+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/></Relationships>`;
+  const srel='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>';
+  f.push({name:'[Content_Types].xml',data:ct});
+  f.push({name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>'});
+  f.push({name:'ppt/presentation.xml',data:pres});
+  f.push({name:'ppt/_rels/presentation.xml.rels',data:pr});
+  f.push({name:'ppt/slideMasters/slideMaster1.xml',data:MASTER});
+  f.push({name:'ppt/slideMasters/_rels/slideMaster1.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>'});
+  f.push({name:'ppt/slideLayouts/slideLayout1.xml',data:LAYOUT});
+  f.push({name:'ppt/slideLayouts/_rels/slideLayout1.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>'});
+  f.push({name:'ppt/theme/theme1.xml',data:THEME});
+  slides.forEach((sh,i)=>{
+    f.push({name:`ppt/slides/slide${i+1}.xml`,data:slideXml(sh)});
+    f.push({name:`ppt/slides/_rels/slide${i+1}.xml.rels`,data:srel});
+  });
+  return zip(f);
+}
+function exportPptx(){
+  const s=S; if(!s.M) return;
+  const T='0F6675', G='C98A16', K='1B2A2E', W='FFFFFF', L='6B7A7D';
+  const basis=s.basis==='new'?'2021–2025 (최근5년)':'2016–2025 (10년)';
+  const head=(t,sub)=>[pRect(2,0,0,12192000,1150000,T),
+    pTxt(3,650000,250000,10800000,500000,[[t,3200,true,W]]),
+    pTxt(4,650000,730000,10800000,320000,[[sub,1400,false,'CFE3E6']])];
+  const foot=id=>pTxt(id,650000,6350000,10800000,300000,[['기상청 API허브 검증 일사량 기반 · 모든 발전량은 PR과 모듈 성능저하가 반영된 예상값',1000,false,L]]);
+
+  const s1=[pRect(2,0,0,12192000,6858000,'FFFFFF'),pRect(3,0,0,12192000,2100000,T),
+    pTxt(4,760000,600000,10600000,700000,[['태양광 예상 발전량 분석',4000,true,W]]),
+    pTxt(5,760000,1400000,10600000,400000,[[`${s.reg} · ${fmt(s.cap,0)} kWp · 경사 ${fmt(s.tilt,0)}° ${dirName(s.azi)}`,1800,false,'CFE3E6']]),
+  ];
+  const kpi=[['1년차 예상 발전량',energy(s.gen1)],['연간 경사면 일사량',fmt(s.poaY,0)+' kWh/㎡'],
+             ['예상 등가발전시간',fmt(s.Y[0].eq,2)+' h/일'],[`${s.ny}년 누적 예상`,energy(s.cum)]];
+  kpi.forEach((k,i)=>{
+    const x=760000+i*2700000;
+    s1.push(pRect(10+i*2,x,2600000,2450000,1400000,'F1F6F7'));
+    s1.push(pTxt(11+i*2,x+180000,2720000,2100000,1000000,[[k[0],1100,false,L],[k[1],2200,true,T]]));
+  });
+  s1.push(pTxt(30,760000,4300000,10600000,1500000,[
+    [`자료 출처   기상청 ASOS · 61개 지점 177,821 관측일 · 기준 ${basis}`,1300,false,K],
+    [`적용 관측소   ${'지점 '+CODE[s.reg]} · 위도 ${fmt(s.lat,3)}°N`,1300,false,K],
+    [`시스템 조건   PR ${fmt(s.pr*100,1)}% · 성능저하 1년차 ${fmt(s.a*100,2)}% / 이후 ${fmt(s.b*100,2)}%/년`,1300,false,K],
+    [`표시 기준   ${showP90?'P90 (자원 변동성 반영)':'P50 (중앙 기대값)'}`,1300,false,K]]));
+  s1.push(foot(40));
+
+  const s2=[...head('월별 예상 발전량',`${s.qy}년차 기준 · 성능계수 ${fmt(s.qf*100,2)}%`)];
+  s2.push(pRect(10,650000,1400000,10900000,340000,T));
+  s2.push(pTxt(11,750000,1440000,2000000,300000,[['월',1200,true,W]]));
+  ['경사면 일사량(kWh/㎡/일)','보정계수','예상 발전량(kWh)','예상 등가시간(h/일)'].forEach((h,i)=>
+    s2.push(pTxt(12+i,2900000+i*2400000,1440000,2300000,300000,[[h,1100,true,W]])));
+  s.M.forEach((x,i)=>{
+    const y=1800000+i*370000, id=20+i*6;
+    if(i%2===1) s2.push(pRect(id,650000,y,10900000,360000,'F5F9F9'));
+    s2.push(pTxt(id+1,750000,y+40000,2000000,300000,[[MONTH[i],1150,true,K]]));
+    [fmt(x.poa,3),fmt(x.factor,3),fmt(x.gen,0),fmt(x.eq,2)].forEach((v,j)=>
+      s2.push(pTxt(id+2+j,2900000+j*2400000,y+40000,2300000,300000,[[v,1150,false,K]])));
+  });
+  s2.push(foot(200));
+
+  const s3=[...head('연도별 예상 발전량',`1–${s.ny}년차 · 모듈 성능저하 반영`)];
+  const pick=s.Y.filter((x,i)=>i===0||i===s.Y.length-1||(x.y%5===0)).slice(0,12);
+  s3.push(pRect(10,650000,1400000,10900000,340000,T));
+  ['연차','모듈 성능계수','누적 저하율','연간 예상 발전량(kWh)','누적 예상 발전량(kWh)'].forEach((h,i)=>
+    s3.push(pTxt(11+i,750000+i*2200000,1440000,2100000,300000,[[h,1100,true,W]])));
+  pick.forEach((x,i)=>{
+    const y=1800000+i*380000, id=30+i*7;
+    if(i%2===1) s3.push(pRect(id,650000,y,10900000,370000,'F5F9F9'));
+    [x.y+'년차',fmt(x.pf*100,2)+'%',fmt(x.deg*100,2)+'%',fmt(x.gen,0),fmt(x.cum,0)].forEach((v,j)=>
+      s3.push(pTxt(id+1+j,750000+j*2200000,y+40000,2100000,300000,[[v,1200,j===0,K]])));
+  });
+  s3.push(foot(200));
+
+  const s4=[...head('분석 조건 및 유의사항','산정 근거와 해석상 한계')];
+  const notes=[
+    ['자료 출처','기상청 API허브 sun_sfc_day.php (SI DAY, 일사량 일합 MJ/㎡). 20개 ASOS 지점 × 3,653일 = 73,060 관측일'],
+    ['결측 처리','결측·0값 제외 후 유효일 평균으로 월 일평균 산출. 12개월 완전 자료 지점만 수록(61/72)'],
+    ['기준 구간',`${basis} — 다수 지점에서 2016~2019년 계기 편향이 확인되어 최근 5년을 권장합니다`],
+    ['품질 관리','일 Kt>1 물리적 불가 관측 27건 집계 제외 · 지점별 계기 편향 판정(안정/주의/의심) 부여'],
+    ['경사면 전사','Spencer 적위 + Erbs 월평균 확산분리 + 15분 96구간 Rb 적분 + 등방성 천공·지면반사'],
+    ['미반영 항목','어레이 행간 음영(GCR), PR의 계절 변동, IAM, 양면발전, 인버터 클리핑, 적설, 계통 정전'],
+    ['P90 범위','연간 일사량의 해간 변동성만 반영. 음영·모델·계측 불확도 미포함 — 금융 검토용은 추가 감액 필요'],
+    ['용도','광역권 월평균 기반 예비 타당성 검토용. 금융·성능보증용은 현장 시간별 자료를 사용하십시오'],
+  ];
+  notes.forEach((nt,i)=>{
+    const y=1500000+i*590000;
+    s4.push(pRect(20+i*3,650000,y,120000,480000,i>=5?G:T));
+    s4.push(pTxt(21+i*3,900000,y,2400000,300000,[[nt[0],1250,true,i>=5?G:T]]));
+    s4.push(pTxt(22+i*3,3350000,y,8200000,460000,[[nt[1],1150,false,K]]));
+  });
+  s4.push(foot(200));
+
+  dl(buildPptx([s1,s2,s3,s4]),`태양광_예상발전량_${s.reg}_${new Date().toISOString().slice(0,10)}.pptx`,
+     'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  toast('PPT 파일을 내려받았습니다');
+}
+
+/* ═══════════ 이벤트 ═══════════ */
+function setMode(m){
+  mode=m; $('simpleWrap').hidden=m!=='simple'; $('detailWrap').hidden=m!=='detail';
+  $('simpleBtn').classList.toggle('on',m==='simple'); $('detailBtn').classList.toggle('on',m==='detail');
+  render();
+}
+function reset(){
+  $('region').value='서울'; $('basis').value='new'; $('tilt').value=30; $('dir').value='180';
+  $('azimuth').value=180; $('albedo').value=0.20; $('lat').value=''; $('cap').value=1000;
+  $('pr').value=80; $('curt').value=0; $('d1').value=1.5; $('d2').value=0.33;
+  $('years').value=25; $('qy').value=1;
+  const d={l1:6,l2:2,l3:1,l4:2,l5:1.5,l6:3,l7:1,l8:1,l9:1};
+  Object.entries(d).forEach(([k,v])=>$(k).value=v);
+  showP90=false; $('p90Btn').textContent='P90 보기'; setMode('simple');
+}
+function init(){
+  const sel=$('region'), grp={G:'양호 (10년 중 7년 이상 관측)',S:'단기 관측 (5년 미만)',P:'부분 자료'};
+  ['G','S','P'].forEach(k=>{
+    const ns=Object.keys(D_NEW).filter(n=>QUAL[n].s===k).sort((a,b)=>a.localeCompare(b,'ko'));
+    if(!ns.length) return;
+    const og=document.createElement('optgroup'); og.label=`${grp[k]} — ${ns.length}개`;
+    ns.forEach(n=>{const o=document.createElement('option');o.value=n;
+      o.textContent=`${n} (${CODE[n]})`+(BIAS[n].v==='B'?'  ⚠ 편향':'');og.appendChild(o)});
+    sel.appendChild(og);
+  });
+  sel.value='서울';
+  $('stnCount').textContent=Object.keys(D_NEW).length+'개 지점';
+  $('simpleBtn').onclick=()=>setMode('simple');
+  $('detailBtn').onclick=()=>setMode('detail');
+  $('dir').addEventListener('change',e=>{if(e.target.value!=='custom')$('azimuth').value=e.target.value;render()});
+  $('azimuth').addEventListener('input',()=>{$('dir').value='custom';render()});
+  document.querySelectorAll('input,select').forEach(el=>{
+    if(!['dir','azimuth'].includes(el.id)) el.addEventListener('input',render);
+    if(el.tagName==='SELECT') el.addEventListener('change',render);
+  });
+  $('resetBtn').onclick=reset;
+  $('pdfBtn').onclick=()=>window.print();
+  $('xlsBtn').onclick=exportXlsx;
+  $('pptBtn').onclick=exportPptx;
+  $('p90Btn').onclick=()=>{
+    if(!P90[$('region').value]){toast('이 지점은 관측연수가 짧아 P90을 산출할 수 없습니다');return;}
+    showP90=!showP90;$('p90Btn').textContent=showP90?'P50 보기':'P90 보기';render();
+    toast(showP90?'P90 기준으로 전환했습니다':'P50 기준으로 전환했습니다');};
+  $('themeBtn').onclick=()=>{
+    const cur=document.documentElement.getAttribute('data-theme');
+    const dark=cur?cur==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+    document.documentElement.setAttribute('data-theme',dark?'light':'dark'); render();
+  };
+  render();
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
