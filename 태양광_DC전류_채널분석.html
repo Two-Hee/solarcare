@@ -284,7 +284,8 @@
   <div class="masthead">
     <div class="masthead-actions">
       <button class="ghost" id="btn-theme" type="button">◐ 테마</button>
-      <button class="ghost" id="btn-csv" type="button" disabled>⬇ 분석결과 CSV</button>
+      <button class="primary" id="btn-xlsx" type="button" disabled>📗 엑셀로 저장</button>
+      <button class="ghost" id="btn-csv" type="button" disabled>⬇ CSV</button>
       <button class="ghost" id="btn-print" type="button">🖨 Print / PDF</button>
     </div>
     <h1><span class="sun-icon">☀</span> 태양광 발전소 - DC 전류 채널분석<span class="version-badge">v01</span></h1>
@@ -1373,6 +1374,920 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
 </script>
 
 <script>
+/* ============================================================ XLSX:START
+   외부 라이브러리 없이 .xlsx(Office Open XML)를 직접 만든다.
+   ZIP 컨테이너 + 스타일 + 시트 + 네이티브 엑셀 차트까지 포함한다.
+   ============================================================ */
+var XlsxWriter = (function(){
+  "use strict";
+
+  /* ---------------------------------------------------------- ZIP 쓰기 */
+
+  var CRC_TABLE = (function(){
+    var t = new Uint32Array(256), c, n, k;
+    for(n=0;n<256;n++){
+      c = n;
+      for(k=0;k<8;k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes){
+    var c = 0xFFFFFFFF;
+    for(var i=0;i<bytes.length;i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function deflateRaw(bytes){
+    if(typeof CompressionStream === "undefined") return Promise.resolve(null);
+    var cs = new CompressionStream("deflate-raw");
+    var w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Response(cs.readable).arrayBuffer().then(function(ab){ return new Uint8Array(ab); });
+  }
+
+  // 파일명은 항상 UTF-8이므로 general purpose bit 11을 세운다.
+  function zipBuild(files){
+    var enc = new TextEncoder();
+    var prepared = files.map(function(f){
+      var nameBytes = enc.encode(f.name);
+      var raw = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+      return { nameBytes:nameBytes, raw:raw, crc:crc32(raw) };
+    });
+
+    return Promise.all(prepared.map(function(p){
+      return deflateRaw(p.raw).then(function(comp){
+        // 압축이 불가능하거나 오히려 커지면 무압축(store)으로 담는다.
+        if(comp && comp.length < p.raw.length){ p.method = 8; p.body = comp; }
+        else { p.method = 0; p.body = p.raw; }
+        return p;
+      });
+    })).then(function(list){
+      var total = 0, i;
+      for(i=0;i<list.length;i++) total += 30 + list[i].nameBytes.length + list[i].body.length;
+      var cdSize = 0;
+      for(i=0;i<list.length;i++) cdSize += 46 + list[i].nameBytes.length;
+
+      var out = new Uint8Array(total + cdSize + 22);
+      var dv = new DataView(out.buffer);
+      var off = 0;
+
+      for(i=0;i<list.length;i++){
+        var p = list[i];
+        p.offset = off;
+        dv.setUint32(off, 0x04034b50, true);
+        dv.setUint16(off+4, 20, true);          // version needed
+        dv.setUint16(off+6, 0x0800, true);      // UTF-8 파일명
+        dv.setUint16(off+8, p.method, true);
+        dv.setUint16(off+10, 0, true);          // mod time
+        dv.setUint16(off+12, 0x4821, true);     // mod date (2016-01-01 고정)
+        dv.setUint32(off+14, p.crc, true);
+        dv.setUint32(off+18, p.body.length, true);
+        dv.setUint32(off+22, p.raw.length, true);
+        dv.setUint16(off+26, p.nameBytes.length, true);
+        dv.setUint16(off+28, 0, true);
+        off += 30;
+        out.set(p.nameBytes, off); off += p.nameBytes.length;
+        out.set(p.body, off); off += p.body.length;
+      }
+
+      var cdStart = off;
+      for(i=0;i<list.length;i++){
+        var q = list[i];
+        dv.setUint32(off, 0x02014b50, true);
+        dv.setUint16(off+4, 20, true);
+        dv.setUint16(off+6, 20, true);
+        dv.setUint16(off+8, 0x0800, true);
+        dv.setUint16(off+10, q.method, true);
+        dv.setUint16(off+12, 0, true);
+        dv.setUint16(off+14, 0x4821, true);
+        dv.setUint32(off+16, q.crc, true);
+        dv.setUint32(off+20, q.body.length, true);
+        dv.setUint32(off+24, q.raw.length, true);
+        dv.setUint16(off+28, q.nameBytes.length, true);
+        dv.setUint16(off+30, 0, true);          // extra
+        dv.setUint16(off+32, 0, true);          // comment
+        dv.setUint16(off+34, 0, true);          // disk
+        dv.setUint16(off+36, 0, true);          // internal attrs
+        dv.setUint32(off+38, 0, true);          // external attrs
+        dv.setUint32(off+42, q.offset, true);
+        off += 46;
+        out.set(q.nameBytes, off); off += q.nameBytes.length;
+      }
+
+      dv.setUint32(off, 0x06054b50, true);
+      dv.setUint16(off+8, list.length, true);
+      dv.setUint16(off+10, list.length, true);
+      dv.setUint32(off+12, off - cdStart, true);
+      dv.setUint32(off+16, cdStart, true);
+      dv.setUint16(off+20, 0, true);
+      return out;
+    });
+  }
+
+  /* ---------------------------------------------------------- 공통 */
+
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");   // 엑셀이 거부하는 제어문자 제거
+  }
+
+  function colRef(i){
+    var s = "";
+    i += 1;
+    while(i > 0){ var r = (i-1) % 26; s = String.fromCharCode(65+r) + s; i = (i-1-r)/26; }
+    return s;
+  }
+
+  // JS Date(로컬 벽시계) → 엑셀 직렬값. 화면에 보이던 시각 그대로 저장된다.
+  function excelSerial(d){
+    return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(),
+                    d.getHours(), d.getMinutes(), d.getSeconds()) / 86400000 + 25569;
+  }
+
+  /* ---------------------------------------------------------- 스타일 카탈로그 */
+
+  // 이름 → cellXfs 인덱스. styles.xml의 정의 순서와 반드시 일치해야 한다.
+  var STYLE_INDEX = {};
+  var STYLE_DEFS = [
+    { name:"default",  font:0, fill:0, numFmt:0 },
+    { name:"title",    font:2, fill:0, numFmt:0 },
+    { name:"h2",       font:5, fill:0, numFmt:0 },
+    { name:"label",    font:1, fill:0, numFmt:0 },
+    { name:"muted",    font:4, fill:0, numFmt:0, wrap:true },
+    { name:"header",   font:3, fill:2, numFmt:0, border:1, align:"center" },
+    { name:"text",     font:0, fill:0, numFmt:0 },
+    { name:"wrap",     font:0, fill:0, numFmt:0, wrap:true },
+    { name:"int",      font:0, fill:0, numFmt:164 },
+    { name:"num1",     font:0, fill:0, numFmt:165 },
+    { name:"num2",     font:0, fill:0, numFmt:166 },
+    { name:"num3",     font:0, fill:0, numFmt:172 },
+    { name:"pct0",     font:0, fill:0, numFmt:168 },
+    { name:"pct1",     font:0, fill:0, numFmt:167 },
+    { name:"date",     font:0, fill:0, numFmt:169 },
+    { name:"datetime", font:0, fill:0, numFmt:170 },
+    { name:"time",     font:0, fill:0, numFmt:171 },
+    { name:"stNormal", font:1, fill:3, numFmt:0, align:"center" },
+    { name:"stWatch",  font:1, fill:4, numFmt:0, align:"center" },
+    { name:"stBad",    font:1, fill:5, numFmt:0, align:"center" },
+    { name:"stDead",   font:1, fill:6, numFmt:0, align:"center" },
+    { name:"hm1",      font:6, fill:7,  numFmt:168, align:"center" },
+    { name:"hm2",      font:0, fill:8,  numFmt:168, align:"center" },
+    { name:"hm3",      font:0, fill:9,  numFmt:168, align:"center" },
+    { name:"hm4",      font:0, fill:10, numFmt:168, align:"center" },
+    { name:"hm5",      font:0, fill:11, numFmt:168, align:"center" },
+    { name:"hm6",      font:6, fill:12, numFmt:168, align:"center" },
+    { name:"hm7",      font:6, fill:13, numFmt:168, align:"center" },
+    { name:"hmNull",   font:4, fill:14, numFmt:0,   align:"center" },
+    { name:"band",     font:1, fill:15, numFmt:0 }
+  ];
+  STYLE_DEFS.forEach(function(d,i){ STYLE_INDEX[d.name] = i; });
+
+  var FONTS = [
+    '<font><sz val="11"/><color theme="1"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><b/><sz val="11"/><color theme="1"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><b/><sz val="15"/><color rgb="FF17150F"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><sz val="10"/><color rgb="FF8C887D"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><b/><sz val="12"/><color rgb="FF845009"/><name val="맑은 고딕"/><family val="2"/></font>',
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/><family val="2"/></font>'
+  ];
+
+  function solidFill(hex){
+    return '<fill><patternFill patternType="solid"><fgColor rgb="FF' + hex + '"/><bgColor indexed="64"/></patternFill></fill>';
+  }
+  var FILLS = [
+    '<fill><patternFill patternType="none"/></fill>',
+    '<fill><patternFill patternType="gray125"/></fill>',
+    solidFill("24384A"),   // 2 헤더
+    solidFill("E6F4E6"),   // 3 정상
+    solidFill("FDF0D0"),   // 4 주의
+    solidFill("FBE3D8"),   // 5 저출력
+    solidFill("F7D9D9"),   // 6 무발전
+    solidFill("C02F2F"),   // 7  히트맵 −25% 초과
+    solidFill("E07F7F"),   // 8  −12~25%
+    solidFill("F2C9C9"),   // 9  −5~12%
+    solidFill("F0EFEC"),   // 10 기준 ±5%
+    solidFill("B7D3F6"),   // 11 +5~12%
+    solidFill("5598E7"),   // 12 +12~25%
+    solidFill("1C5CAB"),   // 13 +25% 초과
+    solidFill("F1EEE5"),   // 14 판정 제외
+    solidFill("F1EEE5")    // 15 구분 띠
+  ];
+
+  var STYLES_XML = (function(){
+    var numFmts =
+      '<numFmt numFmtId="164" formatCode="#,##0"/>' +
+      '<numFmt numFmtId="165" formatCode="#,##0.0"/>' +
+      '<numFmt numFmtId="166" formatCode="#,##0.00"/>' +
+      '<numFmt numFmtId="167" formatCode="0.0%"/>' +
+      '<numFmt numFmtId="168" formatCode="0%"/>' +
+      '<numFmt numFmtId="169" formatCode="yyyy\\-mm\\-dd"/>' +
+      '<numFmt numFmtId="170" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/>' +
+      '<numFmt numFmtId="171" formatCode="hh:mm"/>' +
+      '<numFmt numFmtId="172" formatCode="0.000"/>';
+
+    var xfs = STYLE_DEFS.map(function(d){
+      var a = [];
+      if(d.align) a.push('horizontal="' + d.align + '"');
+      if(d.wrap) a.push('wrapText="1"');
+      a.push('vertical="center"');
+      return '<xf numFmtId="' + d.numFmt + '" fontId="' + d.font + '" fillId="' + d.fill +
+             '" borderId="' + (d.border||0) + '" xfId="0"' +
+             ' applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1">' +
+             '<alignment ' + a.join(" ") + '/></xf>';
+    }).join("");
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="9">' + numFmts + "</numFmts>" +
+      '<fonts count="' + FONTS.length + '">' + FONTS.join("") + "</fonts>" +
+      '<fills count="' + FILLS.length + '">' + FILLS.join("") + "</fills>" +
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+      '<border><left/><right/><top/><bottom style="thin"><color rgb="FF24384A"/></bottom><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="' + STYLE_DEFS.length + '">' + xfs + "</cellXfs>" +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+      "</styleSheet>";
+  })();
+
+  /* ---------------------------------------------------------- 시트 XML */
+
+  // cell: null | 숫자 | 문자열 | Date | {v, s:"스타일명"}
+  function cellXml(ref, cell){
+    if(cell === null || cell === undefined || cell === "") return "";
+    var v = cell, style = null;
+    if(typeof cell === "object" && !(cell instanceof Date)){
+      v = cell.v; style = cell.s || null;
+      if(v === null || v === undefined || v === "") {
+        // 값이 없어도 배경색만 칠해야 하는 칸(히트맵의 결측)
+        return style ? '<c r="' + ref + '" s="' + STYLE_INDEX[style] + '"/>' : "";
+      }
+    }
+    var s = style !== null && STYLE_INDEX[style] !== undefined ? ' s="' + STYLE_INDEX[style] + '"' : "";
+
+    if(v instanceof Date){
+      if(isNaN(v)) return "";
+      return '<c r="' + ref + '"' + (s || ' s="' + STYLE_INDEX.datetime + '"') + "><v>" +
+             excelSerial(v).toFixed(10) + "</v></c>";
+    }
+    if(typeof v === "number"){
+      if(!isFinite(v)) return s ? '<c r="' + ref + '"' + s + "/>" : "";
+      return '<c r="' + ref + '"' + s + "><v>" + (Math.round(v*1e10)/1e10) + "</v></c>";
+    }
+    if(typeof v === "boolean"){
+      return '<c r="' + ref + '"' + s + ' t="b"><v>' + (v ? 1 : 0) + "</v></c>";
+    }
+    return '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + esc(v) + "</t></is></c>";
+  }
+
+  function sheetXml(sheet, drawingRelId){
+    var parts = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ',
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'];
+
+    // 틀 고정
+    var view = '<sheetView workbookViewId="0"' + (sheet.tabSelected ? ' tabSelected="1"' : "") + ">";
+    if(sheet.freeze){
+      var fc = sheet.freeze.col || 0, fr = sheet.freeze.row || 0;
+      var topLeft = colRef(fc) + (fr+1);
+      view += '<pane xSplit="' + fc + '" ySplit="' + fr + '" topLeftCell="' + topLeft +
+              '" activePane="bottomRight" state="frozen"/>' +
+              '<selection pane="bottomRight" activeCell="' + topLeft + '" sqref="' + topLeft + '"/>';
+    }
+    view += "</sheetView>";
+    parts.push("<sheetViews>" + view + "</sheetViews>");
+    parts.push('<sheetFormatPr defaultRowHeight="16.5"/>');
+
+    if(sheet.cols && sheet.cols.length){
+      parts.push("<cols>" + sheet.cols.map(function(w,i){
+        return '<col min="' + (i+1) + '" max="' + (i+1) + '" width="' + w + '" customWidth="1"/>';
+      }).join("") + "</cols>");
+    }
+
+    parts.push("<sheetData>");
+    var maxCol = 0;
+    sheet.rows.forEach(function(row, ri){
+      if(!row || !row.length) return;
+      var cells = "";
+      for(var ci=0; ci<row.length; ci++){
+        cells += cellXml(colRef(ci) + (ri+1), row[ci]);
+      }
+      if(!cells) return;
+      if(row.length > maxCol) maxCol = row.length;
+      var h = (sheet.rowHeights && sheet.rowHeights[ri]) ? ' ht="' + sheet.rowHeights[ri] + '" customHeight="1"' : "";
+      parts.push('<row r="' + (ri+1) + '"' + h + ">" + cells + "</row>");
+    });
+    parts.push("</sheetData>");
+
+    // 순서 규약: sheetData → autoFilter → mergeCells → drawing
+    if(sheet.autoFilter) parts.push('<autoFilter ref="' + sheet.autoFilter + '"/>');
+    if(sheet.merges && sheet.merges.length){
+      parts.push('<mergeCells count="' + sheet.merges.length + '">' +
+        sheet.merges.map(function(m){ return '<mergeCell ref="' + m + '"/>'; }).join("") + "</mergeCells>");
+    }
+    parts.push('<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>');
+    if(drawingRelId) parts.push('<drawing r:id="' + drawingRelId + '"/>');
+    parts.push("</worksheet>");
+    return parts.join("");
+  }
+
+  /* ---------------------------------------------------------- 차트 XML */
+
+  function richText(s, size, bold){
+    return '<c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="' + size + '" b="' + (bold?1:0) +
+      '"/></a:pPr><a:r><a:rPr lang="ko-KR" sz="' + size + '" b="' + (bold?1:0) + '"/><a:t>' +
+      esc(s) + "</a:t></a:r></a:p></c:rich>";
+  }
+
+  function axisTitle(s){
+    return '<c:title><c:tx>' + richText(s, 1000, false) + "</c:tx><c:overlay val=\"0\"/></c:title>";
+  }
+
+  /* spec = { id, type:'line'|'bar', title, catRef, catTitle, valTitle,
+             series:[{nameRef, valRef, color, width}], legendPos } */
+  function chartXml(spec){
+    var axCat = 200000000 + spec.id*2, axVal = axCat + 1;
+    var isLine = spec.type === "line";
+
+    var sers = spec.series.map(function(s, i){
+      var spPr = isLine
+        ? '<c:spPr><a:ln w="' + (s.width || 19050) + '" cap="rnd"><a:solidFill><a:srgbClr val="' + s.color +
+          '"/></a:solidFill><a:round/></a:ln></c:spPr>'
+        : '<c:spPr><a:solidFill><a:srgbClr val="' + s.color + '"/></a:solidFill></c:spPr>';
+      // 막대는 점(채널)마다 판정 색을 따로 입힌다.
+      var dPts = (!isLine && s.dPts) ? s.dPts.map(function(p){
+        return '<c:dPt><c:idx val="' + p.idx + '"/><c:invertIfNegative val="0"/><c:bubble3D val="0"/>' +
+               '<c:spPr><a:solidFill><a:srgbClr val="' + p.color + '"/></a:solidFill></c:spPr></c:dPt>';
+      }).join("") : "";
+
+      return "<c:ser>" +
+        '<c:idx val="' + i + '"/><c:order val="' + i + '"/>' +
+        "<c:tx><c:strRef><c:f>" + esc(s.nameRef) + "</c:f></c:strRef></c:tx>" +
+        spPr +
+        (isLine ? '<c:marker><c:symbol val="none"/></c:marker>' : '<c:invertIfNegative val="0"/>' + dPts) +
+        "<c:cat><c:strRef><c:f>" + esc(spec.catRef) + "</c:f></c:strRef></c:cat>" +
+        "<c:val><c:numRef><c:f>" + esc(s.valRef) + "</c:f></c:numRef></c:val>" +
+        (isLine ? '<c:smooth val="0"/>' : "") +
+        "</c:ser>";
+    }).join("");
+
+    var plot = isLine
+      ? '<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>' + sers +
+        '<c:marker val="0"/><c:axId val="' + axCat + '"/><c:axId val="' + axVal + '"/></c:lineChart>'
+      : '<c:barChart><c:barDir val="' + (spec.barDir || "bar") + '"/><c:grouping val="clustered"/>' +
+        '<c:varyColors val="0"/>' + sers +
+        '<c:gapWidth val="60"/><c:axId val="' + axCat + '"/><c:axId val="' + axVal + '"/></c:barChart>';
+
+    var catAx = '<c:catAx><c:axId val="' + axCat + '"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+      '<c:delete val="0"/><c:axPos val="' + (isLine ? "b" : "l") + '"/>' +
+      (spec.catTitle ? axisTitle(spec.catTitle) : "") +
+      '<c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>' +
+      '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>' +
+      '<c:crossAx val="' + axVal + '"/><c:crosses val="autoZero"/><c:auto val="1"/>' +
+      '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>';
+
+    var valAx = '<c:valAx><c:axId val="' + axVal + '"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+      '<c:delete val="0"/><c:axPos val="' + (isLine ? "l" : "b") + '"/>' +
+      '<c:majorGridlines><c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="E4E1D7"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>' +
+      (spec.valTitle ? axisTitle(spec.valTitle) : "") +
+      (spec.valFmt ? '<c:numFmt formatCode="' + spec.valFmt + '" sourceLinked="0"/>' : "") +
+      '<c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>' +
+      '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>' +
+      '<c:crossAx val="' + axCat + '"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>';
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" ' +
+      'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<c:chart>' +
+      (spec.title ? "<c:title><c:tx>" + richText(spec.title, 1200, true) + '</c:tx><c:overlay val="0"/></c:title>' : "") +
+      '<c:autoTitleDeleted val="' + (spec.title ? 0 : 1) + '"/>' +
+      "<c:plotArea><c:layout/>" + plot + catAx + valAx + "</c:plotArea>" +
+      (spec.legendPos === "none" ? "" :
+        '<c:legend><c:legendPos val="' + (spec.legendPos || "r") + '"/><c:overlay val="0"/>' +
+        '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="ko-KR"/></a:p></c:txPr>' +
+        "</c:legend>") +
+      '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/>' +
+      "</c:chart>" +
+      '<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill>' +
+      '<a:ln><a:solidFill><a:srgbClr val="E4E1D7"/></a:solidFill></a:ln></c:spPr>' +
+      "</c:chartSpace>";
+  }
+
+  function drawingXml(charts){
+    var anchors = charts.map(function(c, i){
+      return "<xdr:twoCellAnchor>" +
+        "<xdr:from><xdr:col>" + c.from.col + "</xdr:col><xdr:colOff>0</xdr:colOff>" +
+        "<xdr:row>" + c.from.row + "</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
+        "<xdr:to><xdr:col>" + c.to.col + "</xdr:col><xdr:colOff>0</xdr:colOff>" +
+        "<xdr:row>" + c.to.row + "</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>" +
+        '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr>' +
+        '<xdr:cNvPr id="' + (i+2) + '" name="차트 ' + (i+1) + '"/><xdr:cNvGraphicFramePr/>' +
+        "</xdr:nvGraphicFramePr>" +
+        '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>' +
+        '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">' +
+        '<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" ' +
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="' + c.relId + '"/>' +
+        "</a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>";
+    }).join("");
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" ' +
+      'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' + anchors + "</xdr:wsDr>";
+  }
+
+  /* ---------------------------------------------------------- 워크북 조립 */
+
+  // 시트 이름에 쓸 수 없는 문자 정리 + 참조용 인용
+  function sheetRef(name, ref){ return "'" + String(name).replace(/'/g, "''") + "'!" + ref; }
+
+  function build(sheets){
+    var files = [];
+    var contentOverrides = [
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+    ];
+    var wbSheets = [], wbRels = [], chartSeq = 0;
+
+    sheets.forEach(function(sheet, si){
+      var sheetFile = "xl/worksheets/sheet" + (si+1) + ".xml";
+      var drawingRelId = null;
+
+      if(sheet.charts && sheet.charts.length){
+        var drawingNo = si + 1;
+        var chartRels = [], anchors = [];
+        sheet.charts.forEach(function(ch, ci){
+          chartSeq++;
+          var chartFile = "xl/charts/chart" + chartSeq + ".xml";
+          var relId = "rId" + (ci+1);
+          ch.spec.id = chartSeq;
+          files.push({ name: chartFile, data: chartXml(ch.spec) });
+          contentOverrides.push('<Override PartName="/' + chartFile +
+            '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>');
+          chartRels.push('<Relationship Id="' + relId +
+            '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart' +
+            chartSeq + '.xml"/>');
+          anchors.push({ from: ch.from, to: ch.to, relId: relId });
+        });
+
+        var drawingFile = "xl/drawings/drawing" + drawingNo + ".xml";
+        files.push({ name: drawingFile, data: drawingXml(anchors) });
+        contentOverrides.push('<Override PartName="/' + drawingFile +
+          '" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>');
+        files.push({ name:"xl/drawings/_rels/drawing" + drawingNo + ".xml.rels",
+          data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                chartRels.join("") + "</Relationships>" });
+
+        drawingRelId = "rId1";
+        files.push({ name:"xl/worksheets/_rels/sheet" + (si+1) + ".xml.rels",
+          data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing' +
+                drawingNo + '.xml"/></Relationships>' });
+      }
+
+      files.push({ name: sheetFile, data: sheetXml(sheet, drawingRelId) });
+      contentOverrides.push('<Override PartName="/' + sheetFile +
+        '" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+
+      wbSheets.push('<sheet name="' + esc(sheet.name) + '" sheetId="' + (si+1) + '" r:id="rId' + (si+1) + '"/>');
+      wbRels.push('<Relationship Id="rId' + (si+1) +
+        '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' +
+        (si+1) + '.xml"/>');
+    });
+
+    wbRels.push('<Relationship Id="rId' + (sheets.length+1) +
+      '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
+
+    files.push({ name:"xl/styles.xml", data: STYLES_XML });
+    files.push({ name:"xl/workbook.xml",
+      data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+            '<workbookPr/><bookViews><workbookView activeTab="0"/></bookViews>' +
+            "<sheets>" + wbSheets.join("") + "</sheets></workbook>" });
+    files.push({ name:"xl/_rels/workbook.xml.rels",
+      data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+            wbRels.join("") + "</Relationships>" });
+    files.push({ name:"_rels/.rels",
+      data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+            "</Relationships>" });
+    files.unshift({ name:"[Content_Types].xml",
+      data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+            '<Default Extension="xml" ContentType="application/xml"/>' +
+            contentOverrides.join("") + "</Types>" });
+
+    return zipBuild(files);
+  }
+
+  return { build: build, sheetRef: sheetRef, colRef: colRef, excelSerial: excelSerial, STYLE_INDEX: STYLE_INDEX };
+})();
+
+/* ------------------------------------------------------------------------
+   분석 결과 → 엑셀 워크북 구성. 화면에 있는 표·차트·판정을 모두 담는다.
+   ------------------------------------------------------------------------ */
+var SolarWorkbook = (function(){
+  "use strict";
+
+  var X = XlsxWriter;
+
+  var STATUS = {
+    normal: { label:"정상",        color:"A8A49A", style:"stNormal", width:9525 },
+    watch:  { label:"주의",        color:"FAB219", style:"stWatch",  width:22225 },
+    bad:    { label:"저출력",      color:"EC835A", style:"stBad",    width:22225 },
+    dead:   { label:"무발전·고장", color:"D03B3B", style:"stDead",   width:22225 }
+  };
+  var ORDER = ["dead","bad","watch","normal"];
+  var REF_COLOR = "55524A";
+
+  // 화면 히트맵과 동일한 구간 → 셀 배경 스타일
+  function hmStyle(ratio, valid){
+    if(!isFinite(ratio)) return "hmNull";
+    if(!valid) return "hmNull";
+    if(ratio < 0.75) return "hm1";
+    if(ratio < 0.88) return "hm2";
+    if(ratio < 0.95) return "hm3";
+    if(ratio < 1.05) return "hm4";
+    if(ratio < 1.12) return "hm5";
+    if(ratio < 1.25) return "hm6";
+    return "hm7";
+  }
+
+  function sortedChannels(res){
+    return res.channels.slice().sort(function(a,b){
+      if(a.severity !== b.severity) return b.severity - a.severity;
+      return (a.energyRatio||0) - (b.energyRatio||0);
+    });
+  }
+
+  function timeOnly(ms){
+    if(!isFinite(ms)) return null;
+    var d = new Date(ms);
+    return { v: (d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds())/86400, s:"time" };
+  }
+
+  /* ---------------------------------------------------------- 1. 요약 */
+
+  function sheetSummary(res, ds, meta){
+    var rows = [], push = function(){ rows.push(Array.prototype.slice.call(arguments)); };
+    var c = res.counts, o = res.opts;
+    var abnormal = c.watch + c.bad + c.dead;
+    var worst = res.channels.slice().sort(function(a,b){ return (a.energyRatio||9) - (b.energyRatio||9); })[0];
+
+    push({ v:"태양광 발전소 DC 전류 채널분석 결과", s:"title" });
+    push({ v:"화면에서 본 분석 내용을 그대로 담았습니다. 각 시트의 표와 차트는 원본 데이터에서 계산된 값입니다.", s:"muted" });
+    push();
+
+    push({ v:"분석 정보", s:"h2" });
+    push({ v:"원본 파일", s:"label" }, meta.fileName || "—");
+    push({ v:"생성 시각", s:"label" }, { v: meta.generatedAt || new Date(), s:"datetime" });
+    push({ v:"분석 기간", s:"label" }, res.days[0] + " ~ " + res.days[res.days.length-1]);
+    push({ v:"분석 일수", s:"label" }, { v: res.days.length, s:"int" }, "일");
+    push({ v:"채널 수", s:"label" }, { v: res.channels.length, s:"int" }, "개");
+    push({ v:"데이터 행 수", s:"label" }, { v: ds.times.length, s:"int" }, "행");
+    push({ v:"계측 주기", s:"label" }, { v: res.stepMs/60000, s:"num1" }, "분");
+    push();
+
+    push({ v:"판정 기준", s:"h2" });
+    push({ v:"저출력 판정", s:"label" }, { v:-o.lowTol, s:"pct0" }, "기준보다 이만큼 낮으면 저출력");
+    push({ v:"과출력 판정", s:"label" }, { v:o.highTol, s:"pct0" }, "기준보다 이만큼 높으면 주의");
+    push({ v:"불안정 판정", s:"label" }, { v:o.unstableTol, s:"pct0" }, "일별 성능비 산포가 이보다 크면 주의");
+    push({ v:"형상 이상 판정", s:"label" }, { v:o.shapeTol, s:"pct0" }, "발전 곡선 왜곡이 이보다 크면 음영·오염 의심");
+    push({ v:"발전 판정 전류", s:"label" }, { v:o.activeAmp, s:"num1" }, "기준 전류가 이 값 이상일 때만 발전 중으로 봄");
+    push();
+
+    push({ v:"분석 요약", s:"h2" });
+    push({ v:"분석 채널", s:"label" }, { v:res.channels.length, s:"int" }, "개");
+    push({ v:"정상 채널", s:"label" }, { v:c.normal, s:"int" }, "개");
+    push({ v:"이상 채널", s:"label" }, { v:abnormal, s:"int" }, "개 (주의 " + c.watch + " · 저출력 " + c.bad + " · 무발전 " + c.dead + ")");
+    push({ v:"총 발전량", s:"label" }, { v:res.totalAh, s:"int" }, "Ah (전 채널 전류 적산)");
+    push({ v:"추정 손실량", s:"label" }, { v:res.lossAh, s:"int" }, "Ah (기준 대비 부족분 합계)");
+    push({ v:"손실 비율", s:"label" }, { v: res.lossAh/(res.totalAh+res.lossAh), s:"pct1" }, "");
+    push({ v:"최저 성능 채널", s:"label" }, worst ? worst.name : "—",
+          worst ? "기간 성능비 " + Math.round(worst.energyRatio*100) + "%" : "");
+    push();
+
+    push({ v:"채널 진단 분리", s:"h2" });
+    push({ v:"판정", s:"header" }, { v:"채널 수", s:"header" }, { v:"채널 목록", s:"header" });
+    ORDER.forEach(function(st){
+      var list = res.channels.filter(function(ch){ return ch.status === st; });
+      push({ v:STATUS[st].label, s:STATUS[st].style },
+           { v:list.length, s:"int" },
+           { v: list.length ? list.map(function(ch){
+               return ch.name + "(" + Math.round(ch.energyRatio*100) + "%)";
+             }).join(", ") : "해당 없음", s:"wrap" });
+    });
+    push();
+
+    push({ v:"판정 방법", s:"h2" });
+    [
+      "기준선은 시각별 전 채널 중앙값입니다. 평균이 아니라 중앙값을 쓰기 때문에 한두 채널이 고장 나도 기준선이 따라 내려가지 않습니다.",
+      "기간 성능비 = 실제 발전량 합 ÷ 기준 발전량 합. 그 기간의 실제 손실을 그대로 보여줍니다.",
+      "상시 성능비 = 일별 성능비의 중앙값. '평소 실력'이라 기간 중간에 생긴 고장에는 둔감합니다.",
+      "→ 두 값이 크게 벌어진 채널은 기간 중간에 고장이 났다는 뜻입니다.",
+      "일별 산포 = 일별 성능비의 사분위 범위. 평균은 멀쩡한데 특정 날만 떨어지는 간헐 이상을 잡습니다.",
+      "형상 왜곡 = 채널을 그날 성능비로 정규화한 뒤 기준 곡선과의 평균 잔차. 상시 저출력에는 반응하지 않고, 부분 음영·오염처럼 특정 시간대만 파이는 경우에만 커집니다.",
+      "발전량(Ah)은 전류를 시간에 대해 사다리꼴 적분한 값이며, 결측 구간은 계측 주기의 3배를 넘으면 적분에서 제외합니다."
+    ].forEach(function(t){ push({ v:t, s:"wrap" }); });
+
+    return {
+      name:"요약", rows:rows, cols:[20, 20, 16, 40, 20], tabSelected:true,
+      merges:["A1:E1","A2:E2"],
+      rowHeights:{}
+    };
+  }
+
+  /* ---------------------------------------------------------- 2. 채널진단 */
+
+  function sheetDiagnosis(res){
+    var list = sortedChannels(res);
+    var head = ["채널","판정","기간 성능비","상시 성능비","총 발전량(Ah)","일평균(Ah)",
+                "일별 산포","형상 왜곡","상관도","이상 일수","무발전 일수","이상 시작일","진단 사유"];
+    var rows = [head.map(function(h){ return { v:h, s:"header" }; })];
+
+    list.forEach(function(ch){
+      rows.push([
+        ch.name,
+        { v:STATUS[ch.status].label, s:STATUS[ch.status].style },
+        { v:ch.energyRatio, s:"pct1" },
+        { v:ch.medRatio, s:"pct1" },
+        { v:ch.totalAh, s:"num1" },
+        { v:ch.avgDayAh, s:"num1" },
+        { v:ch.spread, s:"pct1" },
+        { v:ch.medShape, s:"pct1" },
+        { v:ch.medCorr, s:"num3" },
+        { v:ch.badDays.length, s:"int" },
+        { v:ch.deadDays.length, s:"int" },
+        ch.onsetDay || "—",
+        { v:ch.reasons.join(" · "), s:"wrap" }
+      ]);
+    });
+
+    var n = list.length;
+    var name = "채널진단";
+    var chart = {
+      from:{ col:0, row:n+3 }, to:{ col:9, row:n+6+Math.max(8, n) },
+      spec:{
+        type:"bar", barDir:"bar", title:"채널별 기간 성능비 (기준 100%)",
+        catRef: X.sheetRef(name, "$A$2:$A$" + (n+1)),
+        valTitle:"기준 대비", valFmt:"0%", legendPos:"none",
+        series:[{
+          nameRef: X.sheetRef(name, "$C$1"),
+          valRef: X.sheetRef(name, "$C$2:$C$" + (n+1)),
+          color:"2A78D6",
+          dPts: list.map(function(ch, i){
+            return { idx:i, color: ch.status === "normal" ? "2A78D6" : STATUS[ch.status].color };
+          })
+        }]
+      }
+    };
+
+    return {
+      name:name, rows:rows, cols:[16,12,12,12,14,12,11,11,10,10,11,13,64],
+      freeze:{ row:1, col:1 }, autoFilter:"A1:M" + (n+1), charts:[chart]
+    };
+  }
+
+  /* ---------------------------------------------------------- 3. 일별발전량 */
+
+  function sheetDailyAh(res){
+    var list = sortedChannels(res);
+    var name = "일별발전량";
+    var head = [{ v:"날짜", s:"header" }, { v:"기준(중앙값)", s:"header" }].concat(
+      list.map(function(ch){ return { v:ch.name, s:"header" }; }));
+    var rows = [head];
+
+    res.days.forEach(function(key, i){
+      var row = [key, { v:res.dayRefAh[i], s:"num1" }];
+      list.forEach(function(ch){ row.push({ v:ch.days[i].ah, s:"num1" }); });
+      rows.push(row);
+    });
+
+    var nd = res.days.length, lastRow = nd + 1;
+    var series = [{
+      nameRef: X.sheetRef(name, "$B$1"),
+      valRef: X.sheetRef(name, "$B$2:$B$" + lastRow),
+      color: REF_COLOR, width: 28575
+    }];
+    list.forEach(function(ch, i){
+      var col = X.colRef(i+2);
+      series.push({
+        nameRef: X.sheetRef(name, "$" + col + "$1"),
+        valRef: X.sheetRef(name, "$" + col + "$2:$" + col + "$" + lastRow),
+        color: STATUS[ch.status].color,
+        width: STATUS[ch.status].width
+      });
+    });
+
+    return {
+      name:name, rows:rows,
+      cols:[13, 14].concat(list.map(function(){ return 13; })),
+      freeze:{ row:1, col:1 },
+      charts:[{
+        from:{ col:0, row:lastRow+2 }, to:{ col:12, row:lastRow+26 },
+        spec:{ type:"line", title:"채널별 일 발전량 트렌드", catRef: X.sheetRef(name, "$A$2:$A$" + lastRow),
+               valTitle:"일 발전량 (Ah)", catTitle:"날짜", series:series }
+      }]
+    };
+  }
+
+  /* ---------------------------------------------------------- 4. 일별성능비 (히트맵) */
+
+  function sheetHeatmap(res){
+    var list = sortedChannels(res);
+    var rows = [];
+    rows.push([{ v:"채널 × 날짜 성능비 — 기준(전 채널 중앙값) 대비", s:"title" }]);
+    rows.push([{ v:"붉을수록 그날 기준보다 적게 발전한 것입니다. 가로로 이어진 붉은 줄은 상시 결함, 세로로 이어진 줄은 그날 전체의 기상 영향입니다.", s:"muted" }]);
+    rows.push([]);
+
+    var head = [{ v:"채널", s:"header" }, { v:"판정", s:"header" }, { v:"기간 성능비", s:"header" }]
+      .concat(res.days.map(function(d){ return { v:d.slice(5), s:"header" }; }));
+    rows.push(head);
+
+    list.forEach(function(ch){
+      var row = [ch.name, { v:STATUS[ch.status].label, s:STATUS[ch.status].style },
+                 { v:ch.energyRatio, s:"pct0" }];
+      ch.days.forEach(function(d){
+        row.push({ v: isFinite(d.ratio) ? d.ratio : null, s: hmStyle(d.ratio, d.valid) });
+      });
+      rows.push(row);
+    });
+
+    rows.push([]);
+    rows.push([{ v:"색상 범례", s:"h2" }]);
+    var legend = [
+      ["−25% 초과","hm1"], ["−12~25%","hm2"], ["−5~12%","hm3"], ["기준 ±5%","hm4"],
+      ["+5~12%","hm5"], ["+12~25%","hm6"], ["+25% 초과","hm7"], ["판정 제외(흐림·결측)","hmNull"]
+    ];
+    rows.push(legend.map(function(l){ return { v:"", s:l[1] }; }));
+    rows.push(legend.map(function(l){ return { v:l[0], s:"muted" }; }));
+
+    return {
+      name:"일별성능비", rows:rows,
+      cols:[16, 12, 12].concat(res.days.map(function(){ return 7.5; })),
+      freeze:{ row:4, col:3 }
+    };
+  }
+
+  /* ---------------------------------------------------------- 5. 일간프로파일 */
+
+  function sheetProfile(res, ds, meta){
+    var name = "일간프로파일";
+    var dayIdx = res.days.indexOf(meta.selDay);
+    if(dayIdx < 0) dayIdx = 0;
+    var dayKey = res.days[dayIdx];
+    var list = sortedChannels(res);
+
+    var i0 = -1, i1 = -1, i;
+    for(i=0;i<ds.times.length;i++){
+      if(res.dayOfSample[i] === dayIdx){ if(i0 < 0) i0 = i; i1 = i; }
+    }
+
+    var rows = [];
+    rows.push([{ v:"일간 발전 프로파일 — " + dayKey, s:"title" }]);
+    rows.push([{ v:"그날 전 채널의 전류 곡선입니다. 기준선과 나란히 내려가면 상시 출력 저하, 특정 시간대만 파이면 음영·오염입니다.", s:"muted" }]);
+    rows.push([]);
+
+    var head = [{ v:"시각", s:"header" }, { v:"기준(중앙값)", s:"header" }]
+      .concat(list.map(function(ch){ return { v:ch.name, s:"header" }; }));
+    rows.push(head);
+
+    var headRow = rows.length;      // 1-based 헤더 행 번호
+    if(i0 >= 0){
+      for(i=i0;i<=i1;i++){
+        var row = [timeOnly(ds.times[i]), { v:res.ref[i], s:"num2" }];
+        list.forEach(function(ch){ row.push({ v: ds.channels[ch.index].values[i], s:"num2" }); });
+        rows.push(row);
+      }
+    }
+    var lastRow = rows.length;
+
+    var series = [{
+      nameRef: X.sheetRef(name, "$B$" + headRow),
+      valRef: X.sheetRef(name, "$B$" + (headRow+1) + ":$B$" + lastRow),
+      color: REF_COLOR, width: 28575
+    }];
+    list.forEach(function(ch, k){
+      var col = X.colRef(k+2);
+      series.push({
+        nameRef: X.sheetRef(name, "$" + col + "$" + headRow),
+        valRef: X.sheetRef(name, "$" + col + "$" + (headRow+1) + ":$" + col + "$" + lastRow),
+        color: STATUS[ch.status].color,
+        width: STATUS[ch.status].width
+      });
+    });
+
+    return {
+      name:name, rows:rows,
+      cols:[10, 14].concat(list.map(function(){ return 12; })),
+      freeze:{ row:headRow, col:1 },
+      charts: lastRow > headRow ? [{
+        from:{ col:0, row:lastRow+2 }, to:{ col:12, row:lastRow+26 },
+        spec:{ type:"line", title:dayKey + " 발전 프로파일", catRef: X.sheetRef(name, "$A$" + (headRow+1) + ":$A$" + lastRow),
+               valTitle:"DC 전류 (A)", catTitle:"시각", series:series }
+      }] : []
+    };
+  }
+
+  /* ---------------------------------------------------------- 6. 일별상세 */
+
+  function sheetDailyDetail(res){
+    var list = sortedChannels(res);
+    var head = ["채널","판정","날짜","발전량(Ah)","기준(Ah)","성능비","피크(A)","피크 시각",
+                "발전 시간(h)","형상 왜곡","충전율(FF)","상관도","판정 포함"];
+    var rows = [head.map(function(h){ return { v:h, s:"header" }; })];
+
+    list.forEach(function(ch){
+      ch.days.forEach(function(d){
+        var ff = (d.peak > 0 && d.genHours > 0) ? d.ah/(d.peak*d.genHours) : NaN;
+        rows.push([
+          ch.name,
+          { v:STATUS[ch.status].label, s:STATUS[ch.status].style },
+          d.key,
+          { v:d.ah, s:"num1" },
+          { v:d.refAh, s:"num1" },
+          { v:d.ratio, s:"pct1" },
+          { v:d.peak, s:"num2" },
+          timeOnly(d.peakT),
+          { v:d.genHours, s:"num1" },
+          { v:d.shape, s:"pct1" },
+          { v:ff, s:"num2" },
+          { v:d.corr, s:"num3" },
+          d.valid ? "포함" : "제외(기상)"
+        ]);
+      });
+    });
+
+    return {
+      name:"일별상세", rows:rows,
+      cols:[16,12,13,12,12,10,10,11,12,11,11,10,12],
+      freeze:{ row:1, col:1 }, autoFilter:"A1:M" + rows.length
+    };
+  }
+
+  /* ---------------------------------------------------------- 7. 원본데이터 */
+
+  var RAW_ROW_LIMIT = 200000;
+
+  function sheetRaw(res, ds){
+    var n = Math.min(ds.times.length, RAW_ROW_LIMIT);
+    var head = [{ v:"측정시각", s:"header" }].concat(
+      ds.channels.map(function(c){ return { v:c.name, s:"header" }; }));
+    var rows = [head];
+    for(var i=0;i<n;i++){
+      var row = [{ v:new Date(ds.times[i]), s:"datetime" }];
+      for(var c=0;c<ds.channels.length;c++) row.push({ v:ds.channels[c].values[i], s:"num3" });
+      rows.push(row);
+    }
+    if(n < ds.times.length){
+      rows.push([{ v:"※ 행이 많아 앞 " + n.toLocaleString("ko-KR") + "행만 담았습니다. 전체 원본은 업로드한 파일을 참고하세요.", s:"muted" }]);
+    }
+    return {
+      name:"원본데이터", rows:rows,
+      cols:[20].concat(ds.channels.map(function(){ return 13; })),
+      freeze:{ row:1, col:1 }
+    };
+  }
+
+  /* ---------------------------------------------------------- 조립 */
+
+  function build(res, ds, meta){
+    meta = meta || {};
+    var sheets = [
+      sheetSummary(res, ds, meta),
+      sheetDiagnosis(res),
+      sheetDailyAh(res),
+      sheetHeatmap(res),
+      sheetProfile(res, ds, meta),
+      sheetDailyDetail(res)
+    ];
+    if(meta.includeRaw !== false) sheets.push(sheetRaw(res, ds));
+    return X.build(sheets);
+  }
+
+  function fileName(res){
+    return "DC전류_채널분석_" + res.days[0] + "_" + res.days[res.days.length-1] + ".xlsx";
+  }
+
+  return { build: build, fileName: fileName, hmStyle: hmStyle };
+})();
+
+if(typeof module !== "undefined" && module.exports){
+  module.exports.XlsxWriter = XlsxWriter;
+  module.exports.SolarWorkbook = SolarWorkbook;
+}
+/* ============================================================ XLSX:END */
+</script>
+
+<script>
 (function(){
   "use strict";
   if(typeof document === "undefined") return;
@@ -1536,6 +2451,7 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
   }
 
   function onSheetsLoaded(sheets, label){
+    State.sourceName = label;
     // 값이 가장 많은 시트를 기본 선택
     State.sheets = sheets;
     var best = 0, bestN = -1;
@@ -1602,6 +2518,7 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
       recompute(true);
       $("results").hidden = false;
       $("btn-csv").disabled = false;
+      $("btn-xlsx").disabled = false;
       setStatus("분석 완료 — 채널 " + State.dataset.channels.length + "개, " +
                 State.dataset.times.length.toLocaleString("ko-KR") + "행", "ok");
       $("results").scrollIntoView({ behavior:"smooth", block:"start" });
@@ -2447,6 +3364,45 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
       rows + "</tbody></table>";
   }
 
+  /* ------------------------------------------------------------ 엑셀 내보내기 */
+
+  function download(blob, filename){
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function exportXlsx(){
+    var btn = $("btn-xlsx");
+    if(btn.disabled) return;
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "📗 만드는 중…";
+    setStatus("엑셀 파일을 만드는 중입니다… 데이터가 많으면 몇 초 걸립니다.");
+
+    // 큰 워크북을 만드는 동안 버튼 상태가 먼저 그려지도록 한 프레임 넘긴다.
+    setTimeout(function(){
+      var res = State.result, ds = State.sliced;
+      SolarWorkbook.build(res, ds, {
+        fileName: State.sourceName || "업로드 데이터",
+        generatedAt: new Date(),
+        selDay: State.selDay,
+        selChannel: State.selChannel
+      }).then(function(bytes){
+        download(new Blob([bytes], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+                 SolarWorkbook.fileName(res));
+        setStatus("엑셀 파일을 저장했습니다 — 시트 7개(요약·채널진단·일별발전량·일별성능비·일간프로파일·일별상세·원본데이터), 차트 3개 포함", "ok");
+      }).catch(function(e){
+        setStatus("엑셀 저장 실패: " + (e.message || e) + " — 'CSV' 버튼을 이용해 주세요.", "error");
+      }).then(function(){
+        btn.disabled = false;
+        btn.textContent = label;
+      });
+    }, 30);
+  }
+
   /* ------------------------------------------------------------ CSV 내보내기 */
   function exportCsv(){
     var r = State.result;
@@ -2484,12 +3440,8 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
       }).join(","));
     });
 
-    var blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type:"text/csv;charset=utf-8" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "DC전류_채널분석_" + r.days[0] + "_" + r.days[r.days.length-1] + ".csv";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+    download(new Blob(["\uFEFF" + lines.join("\r\n")], { type:"text/csv;charset=utf-8" }),
+             "DC전류_채널분석_" + r.days[0] + "_" + r.days[r.days.length-1] + ".csv");
   }
 
   /* ------------------------------------------------------------ 샘플 데이터 */
@@ -2657,6 +3609,7 @@ if(typeof module !== "undefined" && module.exports) module.exports = SolarCore;
     });
     $("pf-date").addEventListener("change", function(){ State.selDay = this.value; renderProfile(); });
 
+    $("btn-xlsx").addEventListener("click", exportXlsx);
     $("btn-csv").addEventListener("click", exportCsv);
     $("btn-print").addEventListener("click", function(){ window.print(); });
     $("btn-theme").addEventListener("click", function(){
