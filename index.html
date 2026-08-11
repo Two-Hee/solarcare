@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SolarCare — 태양광 발전소 분석 도구</title>
+<meta name="description" content="태양광 발전소 데이터를 브라우저에서 바로 분석하는 도구 모음. 설치 없이 파일 하나로 동작하며, 업로드한 데이터는 서버로 전송되지 않습니다.">
+</head>
+<body>
+<style>
+  :root{
+    color-scheme: light;
+    --page:#f8f6f1; --surface:#fcfcfb; --surface-2:#f1eee5;
+    --text-primary:#17150f; --text-secondary:#55524a; --muted:#8c887d;
+    --border:rgba(23,21,15,0.11); --gridline:#e4e1d7;
+    --accent:#a3620a; --accent-strong:#845009; --accent-wash:rgba(163,98,10,0.10);
+    --status-good:#0ca30c; --status-warning:#c98100; --status-serious:#ec835a; --status-critical:#d03b3b;
+    --shadow: 0 1px 2px rgba(23,21,15,0.06), 0 6px 20px -8px rgba(23,21,15,0.12);
+    --shadow-lift: 0 2px 4px rgba(23,21,15,0.07), 0 14px 34px -12px rgba(23,21,15,0.20);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --page:#0d0d0c; --surface:#1a1a19; --surface-2:#222220;
+      --text-primary:#ffffff; --text-secondary:#c3c2b7; --muted:#8f8d84;
+      --border:rgba(255,255,255,0.10); --gridline:#2c2c2a;
+      --accent:#d9a441; --accent-strong:#e8b862; --accent-wash:rgba(217,164,65,0.14);
+      --status-good:#0ca30c; --status-warning:#fab219; --status-serious:#ec835a; --status-critical:#e66767;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.5);
+      --shadow-lift: 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px -12px rgba(0,0,0,0.65);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:#0d0d0c; --surface:#1a1a19; --surface-2:#222220;
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --muted:#8f8d84;
+    --border:rgba(255,255,255,0.10); --gridline:#2c2c2a;
+    --accent:#d9a441; --accent-strong:#e8b862; --accent-wash:rgba(217,164,65,0.14);
+    --status-good:#0ca30c; --status-warning:#fab219; --status-serious:#ec835a; --status-critical:#e66767;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.5);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px -12px rgba(0,0,0,0.65);
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --page:#f8f6f1; --surface:#fcfcfb; --surface-2:#f1eee5;
+    --text-primary:#17150f; --text-secondary:#55524a; --muted:#8c887d;
+    --border:rgba(23,21,15,0.11); --gridline:#e4e1d7;
+    --accent:#a3620a; --accent-strong:#845009; --accent-wash:rgba(163,98,10,0.10);
+    --status-good:#0ca30c; --status-warning:#c98100; --status-serious:#ec835a; --status-critical:#d03b3b;
+  }
+
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); }
+  .app{
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color:var(--text-primary);
+    max-width:1040px; margin:0 auto; padding:28px 24px 72px;
+    line-height:1.6;
+  }
+  a{ color:var(--accent-strong); }
+
+  .site-breadcrumb{
+    font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif; font-size:20px; font-weight:700;
+    color:#24384a; border-bottom:2px solid #ef7c1b; padding:0 0 10px; margin:0 0 22px;
+    display:flex; align-items:center; gap:10px;
+  }
+  :root[data-theme="dark"] .site-breadcrumb{ color:#cfd8e0; }
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) .site-breadcrumb{ color:#cfd8e0; } }
+  .site-breadcrumb .spacer{ flex:1; }
+  .sun-icon{ color:#e03131; font-family:"Segoe UI Symbol","Apple Symbols",sans-serif; }
+
+  .ghost{
+    border-radius:9px; border:1px solid var(--border); padding:6px 12px; font-size:0.78rem; font-weight:600;
+    cursor:pointer; background:var(--surface-2); color:var(--text-primary); font-family:inherit; white-space:nowrap;
+  }
+  .ghost:hover{ filter:brightness(1.06); }
+  button:focus-visible, a:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+
+  .masthead{ margin-bottom:26px; }
+  .masthead h1{ font-size:1.85rem; font-weight:700; margin:0 0 8px; letter-spacing:-0.02em; }
+  .masthead p{ margin:0; color:var(--text-secondary); font-size:0.95rem; max-width:66ch; }
+  .privacy{
+    display:inline-flex; align-items:center; gap:6px; margin-top:14px; font-size:0.78rem; color:var(--muted);
+    background:var(--surface-2); border:1px solid var(--border); padding:5px 11px; border-radius:999px;
+  }
+
+  h2.section{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+              color:var(--muted); margin:34px 0 14px; }
+
+  /* ── 도구 카드 ── */
+  .tool{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent);
+    border-radius:14px; box-shadow:var(--shadow); padding:24px 26px 22px;
+    transition:box-shadow .16s ease, transform .16s ease, border-color .16s ease;
+  }
+  .tool:hover{ box-shadow:var(--shadow-lift); transform:translateY(-2px); border-color:var(--accent); }
+  .tool .t-top{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .tool h3{ font-size:1.22rem; font-weight:700; margin:0; letter-spacing:-0.01em; }
+  .tool .badge{
+    font-size:0.68rem; font-weight:700; color:var(--accent-strong); background:var(--accent-wash);
+    border:1px solid var(--border); padding:2px 9px; border-radius:999px; letter-spacing:0.02em;
+  }
+  .tool .lede{ margin:0 0 18px; color:var(--text-secondary); font-size:0.9rem; max-width:70ch; }
+  .tool .cta{
+    display:inline-flex; align-items:center; gap:7px; font-size:0.88rem; font-weight:700;
+    color:#fff; background:var(--accent); border-radius:9px; padding:9px 18px;
+  }
+  .tool:hover .cta{ filter:brightness(1.07); }
+  .tool .cta-note{ font-size:0.76rem; color:var(--muted); margin-left:12px; }
+
+  .feat{ display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:14px 22px;
+         margin:0 0 20px; padding:16px 0 0; border-top:1px solid var(--gridline); }
+  .feat .f{ font-size:0.84rem; }
+  .feat .f b{ display:block; font-size:0.86rem; margin-bottom:2px; }
+  .feat .f span{ color:var(--text-secondary); font-size:0.8rem; }
+  .feat .f .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:1px; }
+
+  /* ── 판정 ── */
+  .verdicts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  .v{ border:1px solid var(--border); border-radius:11px; padding:12px 14px; background:var(--surface); }
+  .v .v-head{ display:flex; align-items:center; gap:7px; font-size:0.85rem; font-weight:700; margin-bottom:4px; }
+  .v p{ margin:0; font-size:0.78rem; color:var(--text-secondary); }
+  .v.normal{ border-left:3px solid var(--status-good); }
+  .v.watch{ border-left:3px solid var(--status-warning); }
+  .v.bad{ border-left:3px solid var(--status-serious); }
+  .v.dead{ border-left:3px solid var(--status-critical); }
+
+  /* ── 자료 ── */
+  .files{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+  .file{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:13px 15px;
+    transition:border-color .15s;
+  }
+  .file:hover{ border-color:var(--accent); }
+  .file b{ display:block; font-size:0.85rem; margin-bottom:3px; }
+  .file span{ font-size:0.77rem; color:var(--text-secondary); }
+
+  .note{ font-size:0.83rem; color:var(--text-secondary); background:var(--surface-2);
+         border:1px solid var(--border); border-radius:11px; padding:14px 16px; }
+  .note b{ color:var(--text-primary); }
+
+  footer{ margin-top:44px; padding-top:18px; border-top:1px solid var(--gridline);
+          font-size:0.78rem; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap; }
+</style>
+
+<div class="app">
+  <div class="site-breadcrumb">
+    <span><span class="sun-icon">☀</span> SolarCare</span>
+    <span class="spacer"></span>
+    <button class="ghost" id="btn-theme" type="button">◐ 테마</button>
+  </div>
+
+  <div class="masthead">
+    <h1>태양광 발전소 분석 도구</h1>
+    <p>발전소에서 받은 계측 데이터를 그대로 올려 분석합니다. 설치도, 서버도, 인터넷 연결도 필요 없이
+       파일 하나를 브라우저로 열면 바로 씁니다.</p>
+    <span class="privacy">🔒 모든 분석은 브라우저 안에서만 실행되며 업로드한 데이터는 서버로 전송되지 않습니다</span>
+  </div>
+
+  <h2 class="section">도구</h2>
+
+  <a class="tool" href="태양광_DC전류_채널분석.html">
+    <div class="t-top">
+      <h3>DC 전류 채널분석</h3>
+      <span class="badge">v01</span>
+    </div>
+    <p class="lede">
+      채널(스트링)별 DC 암페어 데이터를 엑셀로 올리면, 채널마다 사이클·트렌드를 그리고 전 채널을 한 차트에서
+      비교해 <b>정상 채널과 기준을 벗어나는 채널을 자동으로 분리</b>합니다.
+      채널 수는 5개든 12개든 20개든 파일에 있는 만큼 그대로 처리합니다.
+    </p>
+
+    <div class="feat">
+      <div class="f">
+        <b>채널 진단 분리</b>
+        <span>어느 채널이 정상이고 어느 채널이 문제인지 네 갈래로 갈라 보여줍니다</span>
+      </div>
+      <div class="f">
+        <b>전 채널 한 차트 비교</b>
+        <span>정상 채널은 회색 다발로 묶이고 벗어나는 채널만 색으로 드러납니다</span>
+      </div>
+      <div class="f">
+        <b>채널 × 날짜 히트맵</b>
+        <span>상시 결함인지 그날만의 문제인지 한눈에, 칸을 누르면 그날 프로파일로</span>
+      </div>
+      <div class="f">
+        <b>일간 발전 프로파일</b>
+        <span>하루 전류 곡선을 기준 곡선과 겹쳐 음영·오염까지 짚어냅니다</span>
+      </div>
+      <div class="f">
+        <b>이상 시작일 특정</b>
+        <span>저출력이 이어지기 시작한 첫 날을 짚어 고장 시점을 알려 줍니다</span>
+      </div>
+      <div class="f">
+        <b>엑셀로 전부 저장</b>
+        <span>표와 엑셀 네이티브 차트를 담은 시트 7개짜리 워크북으로 내보냅니다</span>
+      </div>
+    </div>
+
+    <span class="cta">분석 시작하기 →</span>
+    <span class="cta-note">.xlsx / .csv 업로드 · 데이터가 없으면 샘플로 체험</span>
+  </a>
+
+  <h2 class="section">채널을 이렇게 가릅니다</h2>
+  <div class="verdicts">
+    <div class="v normal">
+      <div class="v-head"><span aria-hidden="true" style="color:var(--status-good)">●</span> 정상</div>
+      <p>기준 범위 안에서 함께 움직이는 채널</p>
+    </div>
+    <div class="v watch">
+      <div class="v-head"><span aria-hidden="true" style="color:var(--status-warning)">▲</span> 주의</div>
+      <p>기준은 넘지만 날짜별 편차나 곡선 형상이 흔들리는 채널</p>
+    </div>
+    <div class="v bad">
+      <div class="v-head"><span aria-hidden="true" style="color:var(--status-serious)">◆</span> 저출력</div>
+      <p>기준보다 뚜렷하게 적게 발전하는 채널</p>
+    </div>
+    <div class="v dead">
+      <div class="v-head"><span aria-hidden="true" style="color:var(--status-critical)">■</span> 무발전·고장</div>
+      <p>발전이 멈췄거나 사실상 출력이 없는 채널</p>
+    </div>
+  </div>
+
+  <h2 class="section">판정 기준</h2>
+  <div class="note">
+    기준선은 <b>시각별 전 채널 중앙값</b>입니다. 평균이 아니라 중앙값을 쓰기 때문에 한두 채널이 고장 나도
+    기준선이 따라 내려가지 않습니다. 여기에 네 가지 지표가 서로 다른 고장을 잡아냅니다 —
+    <b>기간 성능비</b>(실제 손실)와 <b>상시 성능비</b>(평소 실력)를 나눠 보아 기간 중간에 난 고장을 드러내고,
+    <b>일별 산포</b>로 평균은 멀쩡한데 특정 날만 떨어지는 간헐 이상을,
+    <b>곡선 형상 왜곡</b>으로 부분 음영·오염처럼 특정 시간대만 파이는 이상을 가려냅니다.
+    판정 기준값은 화면에서 슬라이더로 바꾸면 즉시 다시 판정합니다.
+  </div>
+
+  <h2 class="section">함께 보기</h2>
+  <div class="files">
+    <a class="file" href="sample/분석결과_예시.xlsx" download>
+      <b>📗 분석결과 예시 (.xlsx)</b>
+      <span>실제로 내보낸 워크북 — 시트 7개, 엑셀 차트 3개</span>
+    </a>
+    <a class="file" href="sample/DC전류_샘플데이터.xlsx" download>
+      <b>📄 샘플 데이터 (.xlsx)</b>
+      <span>고장 5종을 심은 12채널 30일치 가상 데이터</span>
+    </a>
+    <a class="file" href="https://github.com/Two-Hee/solarcare#readme">
+      <b>📘 사용 설명</b>
+      <span>입력 파일 형식과 판정 방법 자세히</span>
+    </a>
+  </div>
+
+  <footer>
+    <span>브라우저에서만 동작 · 외부 라이브러리 없음</span>
+    <span><a href="https://github.com/Two-Hee/solarcare">GitHub 저장소</a></span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById("btn-theme");
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem("solarcare-theme");
+    if(saved) root.setAttribute("data-theme", saved);
+  } catch(e){}
+  btn.addEventListener("click", function(){
+    var cur = root.getAttribute("data-theme");
+    var next = cur === "dark" ? "light" : (cur === "light" ? "" : "dark");
+    if(next) root.setAttribute("data-theme", next); else root.removeAttribute("data-theme");
+    try { next ? localStorage.setItem("solarcare-theme", next) : localStorage.removeItem("solarcare-theme"); } catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
