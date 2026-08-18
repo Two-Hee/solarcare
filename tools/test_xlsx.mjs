@@ -11,7 +11,7 @@ import path from "node:path";
 import vm from "node:vm";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const HTML = fs.readFileSync(path.join(ROOT, "태양광_DC전류_채널분석.html"), "utf8");
+const HTML = fs.readFileSync(path.join(ROOT, "dc-channel.html"), "utf8");
 
 function block(startMarker, endMarker) {
   const s = HTML.indexOf(startMarker);

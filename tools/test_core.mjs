@@ -1,5 +1,5 @@
 /**
- * 태양광_DC전류_채널분석.html 안의 CORE 블록을 그대로 떼어내 Node에서 검증한다.
+ * dc-channel.html 안의 CORE 블록을 그대로 떼어내 Node에서 검증한다.
  * 브라우저를 띄우지 않고 파서 + 분석 엔진의 정확성만 확인하는 용도.
  *
  *   node tools/test_core.mjs
@@ -9,7 +9,7 @@ import path from "node:path";
 import vm from "node:vm";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const HTML = fs.readFileSync(path.join(ROOT, "태양광_DC전류_채널분석.html"), "utf8");
+const HTML = fs.readFileSync(path.join(ROOT, "dc-channel.html"), "utf8");
 
 const start = HTML.indexOf("var SolarCore = (function()");
 const end = HTML.indexOf("CORE:END");
