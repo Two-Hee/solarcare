@@ -5,8 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from .analysis import (
-    Rules, atr_at, base_rate, day_stats, dip_signals, event_study, gate_pass, range_percentiles,
-    regular, summarize_trades, swing_summary, vol_profile, volume_spike_signals, volume_spike_table,
+    Rules, base_rate, day_stats, dip_signals, event_study, gate_pass, level_drift, levels_by_day,
+    range_percentiles, regular, room_split, summarize_trades, support_touch_signals, swing_summary,
+    vol_profile, volume_spike_signals, volume_spike_table,
 )
 from .bars import Bar
 from .config import Params
@@ -21,6 +22,7 @@ def _table(head: list[str], rows: list[list]) -> list[str]:
 
 def analyze(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
     base = base_rate(days, r, p)
+    lvs = levels_by_day(days, p)
     return {
         "days": day_stats(days),
         "pctl": range_percentiles(days),
@@ -31,11 +33,15 @@ def analyze(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
         "base_all": summarize_trades(base),
         "base_hour": summarize_trades(base, key=lambda t: f"{t['ts'].hour:02d}시"),
         "studies": {
-            "거래량 급증(4배, 양봉)": event_study(days, lambda reg: volume_spike_signals(reg, 4.0, bullish=True), r),
-            "거래량 급증(4배, 음봉)": event_study(days, lambda reg: volume_spike_signals(reg, 4.0, bullish=False), r),
-            "과대낙폭 후 저점 반등(분할매수 근사)": event_study(days, lambda reg: dip_signals(reg, p), r),
+            "거래량 급증(4배, 양봉)": event_study(days, lambda reg, d: volume_spike_signals(reg, 4.0, bullish=True), r),
+            "거래량 급증(4배, 음봉)": event_study(days, lambda reg, d: volume_spike_signals(reg, 4.0, bullish=False), r),
+            "과대낙폭 후 저점 반등(분할매수 근사)": event_study(days, lambda reg, d: dip_signals(reg, p), r),
+            "수급 지지 노드 바로 위 + 매수압력": event_study(days, lambda reg, d: support_touch_signals(lvs[d], p)(reg), r),
         },
         "spikes": volume_spike_table(days),
+        "levels": lvs,
+        "room": room_split(days, lvs, r, p),
+        "drift": level_drift(lvs),
     }
 
 
@@ -101,6 +107,27 @@ def render(code: str, res: dict, p: Params, r: Rules, n_bars: int) -> str:
     L += ["## 7. 거래량 급증 분 상위", ""]
     L += _table(["시각", "배수", "해당 봉 등락", "+5분", "+15분"],
                 [[s["ts"].strftime("%m-%d %H:%M"), f"{s['mult']:.1f}x", pct(s["bar_ret"]), pct(s["f5"]), pct(s["f15"])] for s in res["spikes"]])
+    L += ["## 8. 수급 기반 동적 지지·저항", ""]
+    d = res["drift"]
+    L += [f"수준은 고정이 아니라 거래량이 쌓이는 대로 계속 이동합니다. 가장 가까운 지지/저항의 30분 중앙 이동폭: "
+          f"지지 {pc0(d['support_median'], 2)} · 저항 {pc0(d['resistance_median'], 2)} (표본 {d['n']:,}).", ""]
+    last_day = days[-1]["day"]
+    seq = res["levels"].get(last_day, [])
+    if seq:
+        cur = seq[-1]
+        rows_l = [["저항", f"{x.price:,.0f}", pc0(x.strength, 1), pc0(x.share, 1), f"{x.delta:+.2f}"] for x in reversed(cur.resistances)]
+        rows_l += [["지지", f"{x.price:,.0f}", pc0(x.strength, 1), pc0(x.share, 1), f"{x.delta:+.2f}"] for x in cur.supports]
+        L += [f"**{last_day} 마감 시점** 거래량 노드 (기준 평단 anchored VWAP {cur.avwap:,.0f})", ""]
+        L += _table(["구분", "가격", "강도", "거래량 비중", "매수-매도 비율"], rows_l or [["-", "-", "-", "-", "-"]])
+    rm = res["room"]
+    L += [f"**저항 여유 필터 검증** — 가까운 강한 저항까지 거리가 익절폭의 {p.lv_room_frac:.0%} 미만이면 진입을 막는 규칙({'켜짐' if p.use_levels else '꺼짐, 검증용 계산'})", ""]
+    rr = lambda s: (s[0] if s else None)  # noqa: E731
+    a, b = rr(rm["room"]), rr(rm["blocked"])
+    L += _table(["구분", "진입", "익절 먼저", "손절 먼저", "평균 순손익"], [
+        ["여유 있음(진입 허용)", rm["n_room"], pc0(a["tp"], 0) if a else "-", pc0(a["stop"], 0) if a else "-", pct(a["avg_net"], 3) if a else "-"],
+        ["저항 코앞(진입 차단)", rm["n_blocked"], pc0(b["tp"], 0) if b else "-", pc0(b["stop"], 0) if b else "-", pct(b["avg_net"], 3) if b else "-"],
+    ])
+    L += ["차단 구간의 익절 비율이 허용 구간보다 **뚜렷이 낮을 때만** 이 필터가 의미 있습니다. 표본이 작으면 켜지 마세요.", ""]
     L += ["---", "봉 데이터에는 체결 방향이 없어 '압력'은 종가 위치 기반 추정입니다(틱 기록으로 만든 봉은 실제 매수/매도 체결량 사용)."]
     return "\n".join(L)
 

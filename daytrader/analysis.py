@@ -330,7 +330,7 @@ def event_study(days: dict[str, list[Bar]], signal_fn, r: Rules, horizons=(1, 5,
     for d, bs in days.items():
         reg = regular(bs)
         times = [b.ts for b in reg]
-        for i in signal_fn(reg):
+        for i in signal_fn(reg, d):
             if i >= len(reg) - 1:
                 continue
             e = reg[i].close
@@ -364,3 +364,67 @@ def volume_spike_table(days: dict[str, list[Bar]], mult: float = 4.0, top: int =
                     out[f"f{h}"] = reg[k].close / e - 1
                 rows.append(out)
     return sorted(rows, key=lambda x: -x["mult"])[:top]
+
+
+# ---------------------------------------------------------------- 수급 기반 동적 지지·저항 검증
+def levels_by_day(days: dict[str, list[Bar]], p: Params) -> dict[str, list]:
+    """날짜 순서대로 한 트래커를 이어서 돌린다(룩어헤드 없음: i 번째 봉이 끝난 시점까지의 정보만 사용)."""
+    from .levels import LevelTracker
+
+    tr = LevelTracker(p)
+    out: dict[str, list] = {}
+    for d in sorted(days):
+        seq = []
+        for b in regular(days[d]):
+            tr.add_bar(b.ts, b.low, b.high, b.close, b.volume, b.buy_vol, b.sell_vol)
+            seq.append(tr.snapshot(b.close, b.ts))
+        out[d] = seq
+    return out
+
+
+def support_touch_signals(lv_seq: list, p: Params, touch: float | None = None, min_gap: int = 10):
+    """지지 노드 바로 위(0~touch)에서 매수 압력이 있는 봉."""
+    touch = p.lv_touch_pct if touch is None else touch
+
+    def fn(reg: list[Bar], _d: str = "") -> list[int]:
+        sig, last = [], -10**9
+        for i, b in enumerate(reg):
+            if i - last < min_gap or not _entry_ok(b, p):
+                continue
+            s = lv_seq[i].nearest_support(p.lv_min_strength)
+            if s and 0 <= b.close / s.price - 1 <= touch and pressure(b) >= 0:
+                sig.append(i)
+                last = i
+        return sig
+
+    return fn
+
+
+def room_split(days: dict[str, list[Bar]], lvs: dict[str, list], r: Rules, p: Params) -> dict:
+    """기준선 진입을 '가까운 강한 저항까지 여유가 있었나'로 나눠 성적을 비교한다."""
+    has, no = [], []
+    for d, bs in days.items():
+        reg = regular(bs)
+        seq = lvs.get(d, [])
+        for i in range(0, len(reg) - 1):
+            if not _entry_ok(reg[i], p) or i >= len(seq):
+                continue
+            res = seq[i].nearest_resistance(p.lv_min_strength)
+            ok = res is None or (res.price / reg[i].close - 1) >= p.lv_room_frac * r.tp
+            (has if ok else no).append({"day": d, "ts": reg[i].ts, **simulate_exit(reg, i, r)})
+    return {"room": summarize_trades(has), "blocked": summarize_trades(no), "n_room": len(has), "n_blocked": len(no)}
+
+
+def level_drift(lvs: dict[str, list], minutes: int = 30) -> dict:
+    """가장 가까운 지지/저항이 30분 사이에 평균 몇 % 움직이는가 = '수준이 얼마나 자주 바뀌는가'."""
+    sup, res = [], []
+    for seq in lvs.values():
+        for i in range(minutes, len(seq)):
+            a, b = seq[i - minutes].nearest_support(), seq[i].nearest_support()
+            if a and b:
+                sup.append(abs(b.price / a.price - 1))
+            a, b = seq[i - minutes].nearest_resistance(), seq[i].nearest_resistance()
+            if a and b:
+                res.append(abs(b.price / a.price - 1))
+    med = lambda xs: statistics.median(xs) if xs else 0.0  # noqa: E731
+    return {"support_median": med(sup), "resistance_median": med(res), "n": len(sup) + len(res)}

@@ -217,7 +217,7 @@ def test_dip_signal_fires_on_bounce_not_during_fall():
 
 def test_event_study_forward_returns_and_mfe_mae():
     reg = capitulation_day()
-    res = event_study({"d": reg}, lambda r: [34], Rules(tp=0.05, sl=0.05, max_hold_min=10))
+    res = event_study({"d": reg}, lambda r, d: [34], Rules(tp=0.05, sl=0.05, max_hold_min=10))
     e = reg[34].close
     assert res["n"] == 1
     assert res["fwd"][1] == pytest.approx(reg[35].close / e - 1) and res["fwd"][5] == pytest.approx(reg[min(39, len(reg) - 1)].close / e - 1)

@@ -105,6 +105,17 @@ class Params:
     dip_add_step_pct: float = 0.006  # 추가매수(하방형): 직전 매수가 대비 이만큼 더 눌렸을 때
     dip_allow_deeper_add: bool = True
 
+    # --- 수급 기반 동적 지지·저항(levels.py). 검증 전이라 기본 꺼짐
+    use_levels: bool = False
+    lv_halflife_min: float = 180.0  # 체결이 있는 시간 기준 반감기(분)
+    lv_bucket_pct: float = 0.0015  # 가격 버킷 폭
+    lv_hvn_mult: float = 2.0  # 평균 버킷의 몇 배 이상이면 거래량 노드
+    lv_touch_pct: float = 0.002  # 수준 '근처' 판정 폭
+    lv_max_levels: int = 3
+    lv_refresh_sec: float = 15.0  # 노드 재계산 주기(이벤트 시간). 현재가 위/아래 분류는 매번 한다
+    lv_min_strength: float = 0.04  # 이 이상(전체 거래량 비중)만 의미 있는 수준으로 사용
+    lv_room_frac: float = 0.6  # 가까운 저항까지 거리가 익절폭의 이 비율보다 작으면 진입 안 함
+
     # --- 일봉 국면 게이트(횡보 후 거래대금 폭발 돌파 구간만 매매). 검증 전이라 기본 꺼짐
     regime_gate: bool = False
 
@@ -164,6 +175,10 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "dip_score_10s": (-10, 30),
     "dip_confirm_score": (0, 40),
     "dip_add_step_pct": (0.003, 0.015),
+    "lv_halflife_min": (30, 600),
+    "lv_hvn_mult": (1.5, 4.0),
+    "lv_min_strength": (0.02, 0.15),
+    "lv_room_frac": (0.3, 1.0),
 }
 
 # 자금·리스크·안전장치 관련: 사람만 바꿀 수 있다.
@@ -178,6 +193,7 @@ LOCKED = {
     "vol_adaptive",
     "news_gate",
     "regime_gate",
+    "use_levels",
     "dip_enabled",
     "dip_break_buffer",
     "dip_t1",

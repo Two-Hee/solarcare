@@ -197,14 +197,38 @@ class FlowStrategy:
         if s.spread_ticks > p.max_spread_ticks:
             return HOLD
         if self._flow_ok(s):
+            if not self._room_ok(s, tp):
+                return HOLD  # 가까운 강한 저항 때문에 익절폭만큼 올라갈 자리가 없다
             return Action("buy", frac=size(p.position_frac, sl), reason="flow_long", tp_pct=tp, sl_pct=sl)
-        if p.dip_enabled and self._dip_ok(c):
-            full = size(p.position_frac, sl)
-            return Action(
-                "buy", frac=full * p.dip_t1, reason="dip_buy", tp_pct=tp, sl_pct=sl, mode="dip",
-                full_frac=full, invalid_px=s.lo_lb * (1 - p.dip_break_buffer),
-            )
+        if p.dip_enabled and self._dip_ok(c) and self._room_ok(s, tp):
+            sup_ok, sup_px = self._dip_support(s)
+            if sup_ok:
+                full = size(p.position_frac, sl)
+                base = min(s.lo_lb, sup_px) if sup_px else s.lo_lb
+                return Action(
+                    "buy", frac=full * p.dip_t1, reason="dip_buy", tp_pct=tp, sl_pct=sl, mode="dip",
+                    full_frac=full, invalid_px=base * (1 - p.dip_break_buffer),
+                )
         return HOLD
+
+    # ------------------------------------------------------------------ 수급 기반 동적 지지·저항 (use_levels)
+    def _room_ok(self, s: FlowSnapshot, tp: float) -> bool:
+        p = self.p
+        if not p.use_levels or s.lv is None:
+            return True
+        r = s.lv.nearest_resistance(p.lv_min_strength)
+        return r is None or (r.price / s.price - 1) >= p.lv_room_frac * tp
+
+    def _dip_support(self, s: FlowSnapshot) -> tuple[bool, float]:
+        """저점이 수급 지지 노드 근처인가. 꺼져 있으면 항상 통과."""
+        p = self.p
+        if not p.use_levels or s.lv is None:
+            return True, 0.0
+        near = [x for x in s.lv.supports if x.strength >= p.lv_min_strength and abs(x.price / s.lo_lb - 1) <= 2 * p.lv_touch_pct]
+        if not near:
+            return False, 0.0
+        best = max(near, key=lambda x: x.strength)
+        return True, best.price
 
     def _flow_ok(self, s: FlowSnapshot) -> bool:
         p = self.p
