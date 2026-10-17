@@ -87,7 +87,8 @@ class FlowStrategy:
             return Action("sell", reason="news_block")
 
         if pos.invalid_px and not carry and px <= pos.invalid_px:
-            return Action("sell", reason="dip_low_break")  # '저점 형성' 가설이 깨졌다 -> 즉시 손절
+            # 진입 근거(저점 형성 / 압축 박스)가 깨졌다 -> 즉시 손절
+            return Action("sell", reason="box_break" if pos.mode == "squeeze" else "dip_low_break")
 
         if carry:  # 이튿날(1박2일 후반)
             if pnl <= -max(p.overnight_sl_pct, sl):
@@ -133,7 +134,8 @@ class FlowStrategy:
 
         dip_underwater = pos.mode == "dip" and pnl <= 0  # 저점매수는 매도세 속에서 샀으므로 손실 구간 수급반전은 무시(저점 이탈이 대신 지킨다)
         band_pure = pos.mode == "band" and p.entry_mode == "band" and p.band_exit  # 밭 하나를 기준으로 삼은 포지션은 밭 소멸/익절/손절로만 정리
-        if held >= p.min_hold_sec and s.score60 <= p.exit_score_1m and s.score10 <= 0 and not dip_underwater and not band_pure:
+        sq_pure = pos.mode == "squeeze"  # 압축 돌파 포지션은 박스 저점 이탈/익절/본전방어/시간청산으로만 정리(진입 근거가 박스이므로)
+        if held >= p.min_hold_sec and s.score60 <= p.exit_score_1m and s.score10 <= 0 and not dip_underwater and not band_pure and not sq_pure:
             return Action("sell", reason="flow_reversal")
         if not pos.overnight and held >= p.max_hold_min * 60:
             return Action("sell", reason="time_stop")
@@ -163,9 +165,11 @@ class FlowStrategy:
             return HOLD  # 국면을 모르거나(unknown) 돌파/확장 구간이 아니면 쉰다
         size_mult = 0.5 if (p.news_gate and c.daily.news == "caution") else 1.0
         st = self.stops(s)
-        if st is None:
+        squeeze = p.entry_mode == "squeeze"
+        if st is None and not squeeze:
             return HOLD
-        tp, sl = st
+        # squeeze 는 '조용한 구간'이 정의이므로 변동성 하한/상한 게이트(stops)를 쓰지 않고 구조적 손절을 쓴다
+        tp, sl = st if st is not None else (p.tp_pct, p.sl_pct)
 
         def size(base_frac: float, stop: float) -> float:
             f = base_frac
@@ -205,6 +209,8 @@ class FlowStrategy:
             return HOLD
         if s.spread_ticks > p.max_spread_ticks:
             return HOLD
+        if squeeze:
+            return self._squeeze_entry(c, tp, size)
         flow_ok = self._flow_ok(s)
         band_ok = p.entry_mode != "flow" and self._band_ok(c)
         mode = p.entry_mode
@@ -227,6 +233,40 @@ class FlowStrategy:
                     full_frac=full, invalid_px=base * (1 - p.dip_break_buffer),
                 )
         return HOLD
+
+    # ------------------------------------------------------------------ 압축 -> 확장 돌파 (entry_mode == squeeze)
+    def _squeeze_entry(self, c: DecisionCtx, tp: float, size) -> Action:
+        """변동성이 줄어든 박스를 거래량·매수체결과 함께 상향 돌파. 손절은 박스 저점."""
+        from .squeeze import stop_price, structural_risk
+
+        p, s = self.p, c.snap
+        q = s.sq
+        if q is None or not q.ready or not q.compressed or q.box_hi <= 0:
+            return HOLD
+        if c.last_exit_ts is not None and q.box_start is not None and c.last_exit_ts >= q.box_start:
+            return HOLD  # 이 박스(또는 그 일부)에서 이미 거래했다: 새 압축이 만들어질 때까지 기다린다
+        px = s.price
+        if not (q.box_hi * (1 + p.sq_break_pct) < px <= q.box_hi * (1 + p.sq_max_ext)):
+            return HOLD  # 아직 돌파 전이거나 이미 많이 올라 늦음
+        if q.vol_med > 0 and s.s60.vol < p.sq_vol_mult * q.vol_med:
+            return HOLD  # 거래량 확장이 없는 돌파는 믿지 않는다
+        if s.s60.delta_ratio < p.sq_min_delta or s.score10 < 0:
+            return HOLD  # 매수체결 우위가 없다
+        if s.s60.n < p.min_trades_1m:
+            return HOLD
+        if p.use_vwap_filter and s.vwap > 0 and px < s.vwap * (1 - p.vwap_tol):
+            return HOLD
+        stop = stop_price(q.box_hi, q.box_lo, p.sq_stop_frac, p.sq_stop_buffer)
+        risk = structural_risk(px, stop)
+        if risk < p.sq_min_risk or risk > p.sl_max_pct or tp / risk < p.sq_min_rr:
+            return HOLD  # 박스가 너무 좁거나 넓어서 손익비가 안 맞는다
+        if not self._room_ok(s, tp):
+            return HOLD
+        return Action(
+            # 판단 기준은 구조적 손절가(invalid_px). 비율 손절은 체결 슬리피지/갭을 위한 보조 장치라 여유를 둔다
+            "buy", frac=size(p.position_frac, risk), reason="squeeze_break", tp_pct=tp, sl_pct=risk * 1.25 + 0.001, mode="squeeze",
+            invalid_px=stop,
+        )
 
     # ------------------------------------------------------------------ 이평선 밭 시작 (entry_mode != flow)
     def _band_ok(self, c: DecisionCtx) -> bool:

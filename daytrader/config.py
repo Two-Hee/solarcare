@@ -120,7 +120,7 @@ class Params:
     regime_gate: bool = False
 
     # --- 이평선 '밭' 시작 기준(bands.py). entry_mode 가 flow 가 아니면 사용
-    entry_mode: str = "flow"  # flow(수급 점수) | band(밭 시작) | either(둘 중 하나) | both(둘 다)
+    entry_mode: str = "flow"  # flow(수급 점수) | squeeze(압축->확장 돌파) | band(이평 밭 시작) | either(flow 또는 band) | both(flow 와 band)
     band_tf_min: int = 5  # 분봉 단위
     band_fast: int = 5
     band_slow: int = 20
@@ -135,6 +135,19 @@ class Params:
     band_daily_min_width: float = 0.01
     band_daily_confirm_bars: int = 8  # 하루 +1.2% 상승에서 간격 1% 까지 6일 걸림
     band_daily_recent: int = 5  # 확정 후 이 일수 이내면 bandstart 국면
+
+    # --- 압축->확장 돌파 (squeeze.py, entry_mode=squeeze)
+    sq_base_min: int = 20  # 박스 길이(분)
+    sq_ref_min: int = 60  # 비교 기준 구간(분)
+    sq_compress_ratio: float = 0.7  # 박스 평균 변동폭이 기준 구간의 이 비율 이하면 압축
+    sq_break_pct: float = 0.0003  # 박스 고점을 이만큼 넘어야 돌파
+    sq_max_ext: float = 0.006  # 박스 고점 대비 이 이상 올라 있으면 이미 늦음
+    sq_vol_mult: float = 2.0  # 최근 60초 거래량 >= 박스 분당 거래량 중앙값 x 이 값
+    sq_min_delta: float = 0.15  # 매수체결 우위(delta_ratio) 하한
+    sq_stop_frac: float = 0.5  # 손절 위치: 1.0=박스 저점, 0.5=박스 중간(고점에서 이 비율만큼 내려간 곳)
+    sq_stop_buffer: float = 0.001  # 손절선에서 추가로 내리는 버퍼
+    sq_min_rr: float = 1.0  # 익절폭 / 구조적 손절폭 하한
+    sq_min_risk: float = 0.0025  # 손절폭이 이보다 작으면 박스가 너무 좁아 잡음에 털린다
 
     # --- 재무·종목 상태 게이트 (fin.py). 데이터가 없으면 통과
     fin_gate: bool = True
@@ -205,6 +218,12 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "min_atr1m": (0.0005, 0.005),
     "sl_atr_mult": (1.5, 4.0),
     "tp_atr_mult": (0.0, 6.0),
+    "sq_compress_ratio": (0.4, 0.9),
+    "sq_vol_mult": (1.3, 5.0),
+    "sq_min_delta": (0.0, 0.5),
+    "sq_min_rr": (0.8, 2.5),
+    "sq_stop_frac": (0.3, 1.0),
+    "sq_max_ext": (0.003, 0.012),
     "band_min_width": (0.0005, 0.01),
     "band_fresh_bars": (1, 4),
     "band_max_ext": (0.005, 0.03),
@@ -233,6 +252,10 @@ LOCKED = {
     "vol_adaptive",
     "news_gate",
     "entry_mode",
+    "sq_base_min",
+    "sq_ref_min",
+    "sq_stop_buffer",
+    "sq_min_risk",
     "band_tf_min",
     "band_fast",
     "band_slow",

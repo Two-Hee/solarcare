@@ -19,6 +19,7 @@ from datetime import date, datetime, timedelta
 from .config import Params
 from .costs import tick_size
 from .bands import BandSnap, IntradayBand
+from .squeeze import SqueezeSnap, SqueezeTracker
 from .levels import LevelTracker, Levels
 from .models import Quote, Tick
 
@@ -112,7 +113,8 @@ class FlowSnapshot:
     lo_ts: datetime | None = None  # 그 저가가 찍힌 시각
     hl2: int = 0  # 마지막 완성된 1분봉 2개의 저가 중 낮은 값(저점이 높아지는지 확인용)
     lv: "Levels | None" = None  # 수급 기반 동적 지지·저항 (use_levels 일 때만)
-    band: "BandSnap | None" = None  # 이평선 밭 상태 (entry_mode != flow 일 때만)
+    band: "BandSnap | None" = None  # 이평선 밭 상태 (entry_mode 가 band/either/both 일 때만)
+    sq: "SqueezeSnap | None" = None  # 압축->확장 박스 (entry_mode == squeeze 일 때만)
 
     @property
     def vwap_dev(self) -> float:
@@ -154,7 +156,8 @@ class FlowAnalyzer:
         self._hist: deque[float] = deque(maxlen=2000)
         self._n = 0
         self.levels = LevelTracker(params) if params.use_levels else None
-        self.band = IntradayBand.from_params(params) if params.entry_mode != "flow" else None
+        self.band = IntradayBand.from_params(params) if params.entry_mode in ("band", "either", "both") else None
+        self.sq = SqueezeTracker(params.sq_base_min, params.sq_ref_min, params.sq_compress_ratio) if params.entry_mode == "squeeze" else None
         self._bar: list | None = None  # [분 키, 고가, 저가, 종가, 저가 시각]
         self._bars: deque[tuple] = deque(maxlen=60)  # 완성된 1분봉
         self._ranges: deque[float] = deque(maxlen=60)
@@ -174,15 +177,17 @@ class FlowAnalyzer:
         self._bars.clear()
         self._ranges.clear()
 
-    def _bar_update(self, ts: datetime, price: int) -> None:
+    def _bar_update(self, ts: datetime, price: int, vol: int = 0) -> None:
         key = ts.replace(second=0, microsecond=0)
         b = self._bar
         if b is None or b[0] != key:
             if b is not None:
                 self._bars.append(tuple(b))
+                if self.sq is not None:
+                    self.sq.add_bar(b[0], b[1], b[2], b[3], b[5])
                 if b[3] > 0:
                     self._ranges.append((b[1] - b[2]) / b[3])
-            self._bar = [key, price, price, price, ts]
+            self._bar = [key, price, price, price, ts, vol]
         else:
             if price > b[1]:
                 b[1] = price
@@ -190,6 +195,7 @@ class FlowAnalyzer:
                 b[2] = price
                 b[4] = ts
             b[3] = price
+            b[5] += vol
 
     def _dip_info(self, now: datetime) -> tuple[int, int, datetime | None, int]:
         cut = now.replace(second=0, microsecond=0) - timedelta(minutes=self.p.dip_lookback_min)
@@ -244,7 +250,7 @@ class FlowAnalyzer:
         for w in self.win.values():
             w.add(t.ts, t.price, t.vol, side, big)
             w.trim(t.ts)
-        self._bar_update(t.ts, t.price)
+        self._bar_update(t.ts, t.price, t.vol)
         if self.levels is not None:
             self.levels.add_tick(t.ts, t.price, t.vol, side)
         if self.band is not None:
@@ -322,6 +328,7 @@ class FlowAnalyzer:
             hl2=hl2,
             lv=self.levels.snapshot(self.last_price, now) if self.levels is not None and self.last_price else None,
             band=self.band.snap() if self.band is not None else None,
+            sq=self.sq.snap() if self.sq is not None else None,
             cvd=self.cvd,
             ob_imb=ob_imb,
             top_imb=top_imb,

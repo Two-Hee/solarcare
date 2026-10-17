@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .analysis import (
-    Rules, band_study, base_rate, day_stats, dip_signals, event_study, gate_pass, level_drift, levels_by_day,
+    Rules, band_study, base_rate, day_stats, squeeze_study, dip_signals, event_study, gate_pass, level_drift, levels_by_day,
     range_percentiles, regular, room_split, summarize_trades, support_touch_signals, swing_summary,
     vol_profile, volume_spike_signals, volume_spike_table,
 )
@@ -43,6 +43,7 @@ def analyze(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
         "room": room_split(days, lvs, r, p),
         "drift": level_drift(lvs),
         "band": band_study(days, p, r),
+        "squeeze": squeeze_study(days, p, r),
     }
 
 
@@ -143,6 +144,30 @@ def render(code: str, res: dict, p: Params, r: Rules, n_bars: int) -> str:
     L += _table(["정의", "신호", "+15분", "+30분", "익절/손절 먼저", "평균 순손익", "기준선 대비"], rows9)
     L += ["⚠️ 여러 정의를 나란히 본 것이라 **그중 가장 좋아 보이는 정의를 고르면 과최적화**입니다(다중 비교). 정의는 사용자가 차트에서 보는 '노란 밭'의 두 선·시간봉으로 "
           "먼저 정하고, 이 표는 그 정의가 기준선보다 나은지만 확인하는 데 쓰세요. 표본 30회 미만은 해석하지 마세요.", ""]
+    L += ["## 10. 압축 -> 확장 돌파 (이 프로그램의 기본 제안 기준)", "",
+          f"정의: 최근 {p.sq_base_min}분 박스의 평균 1분 변동폭이 직전 {p.sq_ref_min}분의 {p.sq_compress_ratio:.0%} 이하(압축)인 상태에서 "
+          f"박스 고점 돌파 + 거래량 ≥ 박스 분당 중앙값 x {p.sq_vol_mult:g} + 매수 우위(≥ {p.sq_min_delta:g}) 이고 손익비(익절폭 / 구조적 손절폭) ≥ {p.sq_min_rr:g}. "
+          f"**손절은 구조적**: 박스 고점에서 박스 폭의 {p.sq_stop_frac:.0%} 아래(1.0=박스 저점) − 버퍼 {p.sq_stop_buffer * 100:.1f}%. 신호 봉 종가 진입(보수적).", ""]
+    rows10 = []
+    for x in res["squeeze"]["rows"]:
+        sm = x["summary"]
+        if not sm:
+            rows10.append([x["label"], 0, "-", "-", "-", "-", "-"])
+            continue
+        rows10.append([x["label"], x["n"], pct(x["median_risk"]), pct(x["fwd"][30], 3), f"{pc0(sm['tp'], 0)} / {pc0(sm['stop'], 0)}",
+                       pct(sm["avg_net"], 3), pct(sm["avg_net"] - (res['squeeze']['rows'][-1]['summary'] or {'avg_net': 0})['avg_net'], 3)])
+    L += _table(["변형", "신호", "중앙 손절폭", "+30분", "익절/손절 먼저", "평균 순손익", "대조군 대비"], rows10)
+    fu = res["squeeze"]["funnel"]
+    total = sum(fu.values())
+    names = {"not_ready": "데이터 준비 전(박스·기준구간 부족/날짜 걸침)", "no_compress": "압축 아님", "no_break": "박스 돌파 아님/이미 늦음",
+             "no_vol": "거래량 확장 없음", "no_flow": "매수 우위 없음", "bad_rr": "박스 폭이 손익비에 안 맞음(너무 넓거나 좁음)",
+             "stale": "같은 박스 재진입 방지", "ok": "**신호**"}
+    nd = res["squeeze"]["n_days"] or 1
+    L += [f"**왜 신호가 적은가(퍼널)** — 진입 시간대 {total:,}분이 어디서 걸러졌는지(앞 조건부터 순서대로). 신호 {fu.get('ok', 0)}회 = 하루 평균 {fu.get('ok', 0) / nd:.2f}회", ""]
+    L += _table(["걸러진 단계", "분", "비율"], [[names[k], f"{fu.get(k, 0):,}", pc0(fu.get(k, 0) / total, 1) if total else "-"] for k in
+                                               ["not_ready", "no_compress", "no_break", "no_vol", "no_flow", "bad_rr", "stale", "ok"]])
+    L += ["구성요소를 하나씩 빼 가며 비교합니다. **'박스 돌파만' 행이 대조군**(같은 구조적 손절 사용)이고, 전체 기준이 대조군보다 뚜렷이 나을 때만 압축·거래량·매수우위 조건이 가치가 있다는 뜻입니다. "
+          "고정 손절을 쓰는 5절 기준선과의 직접 비교는 참고용입니다. 표본 30회 미만은 해석하지 마세요.", ""]
     L += ["---", "봉 데이터에는 체결 방향이 없어 '압력'은 종가 위치 기반 추정입니다(틱 기록으로 만든 봉은 실제 매수/매도 체결량 사용)."]
     return "\n".join(L)
 

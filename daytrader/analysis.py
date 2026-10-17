@@ -218,10 +218,12 @@ class Rules:
     tax: float = 0.0018
 
 
-def simulate_exit(reg: list[Bar], i: int, r: Rules) -> dict:
-    """i 번째 봉 종가에 매수(+슬리피지)한 롱의 결과. 같은 봉에서 TP/SL 이 모두 닿으면 SL 먼저(보수적)."""
+def simulate_exit(reg: list[Bar], i: int, r: Rules, stop_px: float | None = None) -> dict:
+    """i 번째 봉 종가에 매수(+슬리피지)한 롱의 결과. 같은 봉에서 TP/SL 이 모두 닿으면 SL 먼저(보수적).
+    stop_px 를 주면 고정 비율 손절 대신 그 가격(구조적 손절, 예: 박스 저점)을 쓴다."""
     entry = reg[i].close + r.slip_ticks * tick_size(reg[i].close)
-    tp_px, sl_px = entry * (1 + r.tp), entry * (1 - r.sl)
+    tp_px = entry * (1 + r.tp)
+    sl_px = entry * (1 - r.sl) if stop_px is None else stop_px
     t0 = reg[i].ts
     flat = hms(r.flatten)
     exit_px, reason, j_end = reg[-1].close, "eod", len(reg) - 1
@@ -330,11 +332,12 @@ def event_study(days: dict[str, list[Bar]], signal_fn, r: Rules, horizons=(1, 5,
     for d, bs in days.items():
         reg = regular(bs)
         times = [b.ts for b in reg]
-        for i in signal_fn(reg, d):
+        for sig in signal_fn(reg, d):
+            i, stop = sig if isinstance(sig, tuple) else (sig, None)  # (인덱스, 구조적 손절가) 도 허용
             if i >= len(reg) - 1:
                 continue
             e = reg[i].close
-            trades.append({"day": d, "ts": reg[i].ts, **simulate_exit(reg, i, r)})
+            trades.append({"day": d, "ts": reg[i].ts, **simulate_exit(reg, i, r, stop)})
             for h in horizons:
                 k = bisect_right(times, reg[i].ts + timedelta(minutes=h)) - 1
                 fwd[h].append(reg[k].close / e - 1)
@@ -466,3 +469,75 @@ def band_study(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
         st = event_study(days, lambda reg, d, sig=sig: sig.get(d, []), r)
         rows.append({"label": label, "tf": pp.band_tf_min, "fast": pp.band_fast, "slow": pp.band_slow, **st})
     return {"rows": rows}
+
+
+# ---------------------------------------------------------------- 압축 -> 확장 돌파 검증
+SQ_STAGES = ["not_ready", "no_compress", "no_break", "no_vol", "no_flow", "bad_rr", "stale", "ok"]
+
+
+def squeeze_signals_by_day(days: dict[str, list[Bar]], p: Params, drop: tuple[str, ...] = (), tp: float | None = None,
+                           funnel: dict | None = None) -> dict[str, list[tuple]]:
+    """봉 i 가 끝난 시점에 (박스는 i-1 까지의 봉으로 만든다) 압축 돌파 조건을 평가해 (i, 구조적 손절가, 위험비율) 을 낸다.
+    drop 에 'compress' / 'vol' / 'flow' 를 넣으면 그 구성요소를 빼고(구성요소별 기여도 측정). 날짜를 넘어 이어서 계산(실시간과 동일).
+    funnel 을 주면 각 봉이 어느 조건에서 걸러졌는지 센다(순서: 준비 -> 압축 -> 돌파 -> 거래량 -> 매수우위 -> 손익비 -> 재진입)."""
+    from .squeeze import SqueezeTracker, stop_price, structural_risk
+
+    tr = SqueezeTracker(p.sq_base_min, p.sq_ref_min, p.sq_compress_ratio)
+    tp = p.tp_pct if tp is None else tp
+    out: dict[str, list[tuple]] = {}
+    block_until = None
+    for d in sorted(days):
+        reg = regular(days[d])
+        sigs: list[tuple] = []
+        for i, b in enumerate(reg):
+            q = tr.snap()
+            stage, risk, stop = "not_ready", 0.0, 0.0
+            if _entry_ok(b, p) and q.ready and q.box_hi > 0:
+                px = b.close
+                stop = stop_price(q.box_hi, q.box_lo, p.sq_stop_frac, p.sq_stop_buffer)
+                risk = structural_risk(px, stop)
+                if not (q.compressed or "compress" in drop):
+                    stage = "no_compress"
+                elif not (q.box_hi * (1 + p.sq_break_pct) < px <= q.box_hi * (1 + p.sq_max_ext)):
+                    stage = "no_break"
+                elif not ("vol" in drop or q.vol_med <= 0 or b.volume >= p.sq_vol_mult * q.vol_med):
+                    stage = "no_vol"
+                elif not ("flow" in drop or pressure(b) >= p.sq_min_delta):
+                    stage = "no_flow"
+                elif not (p.sq_min_risk <= risk <= p.sl_max_pct and tp / risk >= p.sq_min_rr):
+                    stage = "bad_rr"
+                elif block_until is not None and b.ts < block_until:
+                    stage = "stale"  # 같은 박스/보유 구간 재진입 방지
+                else:
+                    stage = "ok"
+            elif not _entry_ok(b, p):
+                stage = ""
+            if funnel is not None and stage:
+                funnel[stage] = funnel.get(stage, 0) + 1
+            if stage == "ok":
+                sigs.append((i, stop, risk))
+                block_until = b.ts + timedelta(minutes=max(p.max_hold_min, p.sq_base_min))
+            tr.add_bar(b.ts, b.high, b.low, b.close, b.volume)
+        out[d] = sigs
+    return out
+
+
+SQ_VARIANTS = [
+    ("전체 기준 (압축+거래량+매수우위)", ()),
+    ("압축 조건 제외", ("compress",)),
+    ("거래량 조건 제외", ("vol",)),
+    ("매수우위 조건 제외", ("flow",)),
+    ("박스 돌파만 (대조군)", ("compress", "vol", "flow")),
+]
+
+
+def squeeze_study(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
+    rows = []
+    for label, drop in SQ_VARIANTS:
+        sig = squeeze_signals_by_day(days, p, drop, r.tp)
+        risks = sorted(x[2] for v in sig.values() for x in v)
+        st = event_study(days, lambda reg, d, sig=sig: [(i, stop) for i, stop, _ in sig.get(d, [])], r)
+        rows.append({"label": label, "median_risk": risks[len(risks) // 2] if risks else 0.0, **st})
+    funnel: dict = {}
+    squeeze_signals_by_day(days, p, (), r.tp, funnel)
+    return {"rows": rows, "funnel": funnel, "n_days": len(days)}
