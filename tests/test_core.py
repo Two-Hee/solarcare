@@ -312,3 +312,117 @@ def test_news_gate_in_strategy():
     late = make_snap(ts=at(15, 10), score60=60.0)
     assert st.decide(ctx(late, now=at(15, 10))).reason == "closing_bet"
     assert st.decide(ctx(late, news="caution", now=at(15, 10))).kind == "hold"
+
+
+# ---------------------------------------------------------------- 분할 매수(과대낙폭 후 저점 형성)
+from daytrader.strategy import Action  # noqa: E402
+
+
+def dip_snap(**over):
+    """고점 71,500 -> 저점 70,000(-2.1%) 후 70,200 로 반등, 매도세는 잦아든 상태. 흐름 진입(score60>=35)은 불가."""
+    calm = WindowStats(n=40, vol=3000, buy_vol=1500, sell_vol=1650, delta_ratio=-0.05, strength=91.0, ret=0.001)
+    buyers = WindowStats(n=12, vol=800, buy_vol=560, sell_vol=240, delta_ratio=0.4, strength=233.0, ret=0.001)
+    base = dict(ts=at(10, 0), price=70200, hi_lb=71500, lo_lb=70000, lo_ts=at(9, 59, 0), hl2=0, atr1m=0.004,
+                s10=buyers, s60=calm, s300=WindowStats(n=100, ret=-0.01), score10=15.0, score60=-20.0, score300=-30.0, vwap=70800.0)
+    base.update(over)
+    return make_snap(**base)
+
+
+def test_dip_buy_after_capitulation_and_bounce():
+    st = FlowStrategy(Params())
+    a = st.decide(ctx(dip_snap()))
+    assert a.kind == "buy" and a.reason == "dip_buy" and a.mode == "dip"
+    assert a.frac == pytest.approx(0.45 * 0.4) and a.full_frac == pytest.approx(0.45)
+    assert a.invalid_px == pytest.approx(70000 * 0.997)  # 저점 이탈이 곧 손절선
+
+
+@pytest.mark.parametrize("over,why", [
+    (dict(price=70000), "저점에서 반등 확인 전(떨어지는 칼날)"),
+    (dict(lo_ts=at(9, 59, 50)), "신저점 직후"),
+    (dict(hi_lb=70500), "낙폭 부족"),
+    (dict(price=71000), "이미 반등해 추격"),
+    (dict(s60=WindowStats(n=40, vol=3000, buy_vol=700, sell_vol=2300, delta_ratio=-0.53, ret=-0.004)), "아직 투매 중"),
+    (dict(s10=WindowStats(n=12, vol=800, buy_vol=240, sell_vol=560, delta_ratio=-0.4, ret=-0.001)), "최근 10초 매도 우위"),
+    (dict(atr1m=0.0), "변동성 표본 부족"),
+])
+def test_dip_buy_rejected_when_falling_knife(over, why):
+    assert FlowStrategy(Params()).decide(ctx(dip_snap(**over))).kind == "hold", why
+
+
+def test_dip_disabled_or_news_block():
+    snap = dip_snap()
+    assert FlowStrategy(Params(dip_enabled=False)).decide(ctx(snap)).kind == "hold"
+    assert FlowStrategy(Params()).decide(ctx(snap, news="block")).kind == "hold"
+    half = FlowStrategy(Params()).decide(ctx(snap, news="caution"))
+    assert half.frac == pytest.approx(0.45 * 0.4 * 0.5)
+
+
+def dip_pos(**over):
+    base = dict(code="A", qty=10, avg_price=70200.0, entry_ts=at(9, 59, 30), peak=70200.0, tp_pct=0.013, sl_pct=0.01,
+                mode="dip", full_frac=0.45, tranches=1, invalid_px=69790.0, last_add_ts=at(9, 59, 30), last_tranche_px=70200.0)
+    base.update(over)
+    return Position(**base)
+
+
+def test_dip_add_on_higher_low_confirmation():
+    st = FlowStrategy(Params())
+    snap = dip_snap(price=70300, hl2=70100, score60=15.0, score10=5.0)  # 마지막 두 분봉 저점이 70,100 > 70,000
+    a = st.decide(ctx(snap, dip_pos(), now=at(10, 0, 30)))
+    assert a.kind == "buy" and a.reason == "dip_add_confirm" and a.frac == pytest.approx(0.45 * 0.3)
+    # 3차(마지막): 1 - 0.4 - 0.3
+    a3 = st.decide(ctx(snap, dip_pos(tranches=2), now=at(10, 0, 30)))
+    assert a3.reason == "dip_add_confirm" and a3.frac == pytest.approx(0.45 * 0.3)
+    assert st.decide(ctx(snap, dip_pos(tranches=3), now=at(10, 0, 30))).kind == "hold"  # 최대 3차
+    assert st.decide(ctx(snap, dip_pos(last_add_ts=at(10, 0, 10)), now=at(10, 0, 30))).kind == "hold"  # 간격 45초
+    assert st.decide(ctx(snap, dip_pos(), news="caution", now=at(10, 0, 30))).kind == "hold"  # 뉴스 주의면 추가 금지
+
+
+def test_dip_add_deeper_needs_exhaustion_and_room_above_invalidation():
+    st = FlowStrategy(Params())
+    # 변동성이 커서 손절폭이 1.75% 인 포지션. 평단 대비 -0.6% 는 손절선의 60% 미만이라 추가 여력이 있다
+    pos = dip_pos(avg_price=70800.0, last_tranche_px=70800.0, peak=70800.0, sl_pct=0.0175)
+    snap = dip_snap(price=70370, hl2=0)  # 직전 매수가 대비 -0.6% 이상, 10초는 매수 우위, 저점 이탈선(69,790)과는 여유
+    a = st.decide(ctx(snap, pos, now=at(10, 0, 30)))
+    assert a.kind == "buy" and a.reason == "dip_add_deeper"
+    # 손절폭 1% 인 포지션은 같은 가격에서 이미 손절선의 60% 를 넘어 물타기 금지
+    tight = dip_pos(avg_price=70800.0, last_tranche_px=70800.0, peak=70800.0, sl_pct=0.01)
+    assert st.decide(ctx(snap, tight, now=at(10, 0, 30))).kind == "hold"
+    assert st.decide(ctx(dip_snap(price=70370, hl2=0, s10=WindowStats(n=12, delta_ratio=-0.3)), pos, now=at(10, 0, 30))).kind == "hold"
+    assert FlowStrategy(Params(dip_allow_deeper_add=False)).decide(ctx(snap, pos, now=at(10, 0, 30))).kind == "hold"
+    near = dip_snap(price=69900, hl2=0)  # 저점 이탈선 코앞에서는 물타지 않는다
+    assert st.decide(ctx(near, dip_pos(last_tranche_px=70800.0), now=at(10, 0, 30))).kind == "hold"
+
+
+def test_dip_low_break_exit_and_underwater_flow_reversal_ignored():
+    st = FlowStrategy(Params())
+    assert st.decide(ctx(dip_snap(price=69780), dip_pos(), now=at(10, 2))).reason == "dip_low_break"
+    weak = dip_snap(price=70100, score60=-50.0, score10=-10.0)
+    assert st.decide(ctx(weak, dip_pos(), now=at(10, 2))).kind == "hold"  # 손실 구간 수급반전은 무시
+    flow_pos = dip_pos(mode="flow", invalid_px=0.0)
+    assert st.decide(ctx(weak, flow_pos, now=at(10, 2))).reason == "flow_reversal"
+    up = dip_snap(price=70500, score60=-50.0, score10=-10.0)  # 반등해 이익 중에 수급이 꺾이면 챙긴다
+    assert st.decide(ctx(up, dip_pos(), now=at(10, 2))).reason == "flow_reversal"
+
+
+def test_engine_merges_tranches_into_one_position_and_one_trade_record():
+    eng, br = make_engine(slip_ticks=0)
+    eng.broker.cost = CostModel(slip_ticks=0)
+    cs = eng.states["005930"]
+    eng.on_tick(Tick(at(10, 0), "005930", 70200, 10, 1, 70300, 70200))
+    snap = cs.analyzer.snapshot(at(10, 0))
+    first = Action("buy", frac=0.18, reason="dip_buy", mode="dip", full_frac=0.45, invalid_px=69790.0, tp_pct=0.013, sl_pct=0.01)
+    eng._buy(cs, at(10, 0), snap, first)
+    p1 = cs.position
+    q1, px1 = p1.qty, p1.avg_price
+    assert p1.mode == "dip" and p1.tranches == 1 and cs.trades_today == 1
+    eng.on_tick(Tick(at(10, 1), "005930", 70600, 10, 1, 70700, 70600))
+    snap = cs.analyzer.snapshot(at(10, 1))
+    eng._buy(cs, at(10, 1), snap, Action("buy", frac=0.135, reason="dip_add_confirm"))
+    pos = cs.position
+    assert pos is p1 and pos.tranches == 2 and pos.qty > q1 and cs.trades_today == 1  # 거래 횟수는 차수가 아니라 포지션 단위
+    assert px1 < pos.avg_price < 70700
+    assert pos.invalid_px == 69790.0 and pos.full_frac == 0.45  # 저점 이탈선·목표 수량은 1차 기준 유지
+    qty_total = pos.qty
+    eng._sell(cs, at(10, 5), cs.analyzer.snapshot(at(10, 5)), 1.0, "take_profit")
+    [rec] = eng.trades
+    assert rec["qty"] == qty_total and rec["mode"] == "dip" and rec["tranches"] == 2 and rec["fees"] > 0

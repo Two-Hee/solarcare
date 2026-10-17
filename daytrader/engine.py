@@ -165,6 +165,19 @@ class TradingEngine:
         if fill is None:
             log.warning("매수 체결 실패 %s qty=%d", cs.code, qty)
             return
+        pos = cs.position
+        if pos is not None:  # 분할 매수(추가 차수): 평균단가·수수료를 합산한다
+            total = pos.qty + fill.qty
+            pos.avg_price = (pos.avg_price * pos.qty + fill.price * fill.qty) / total
+            pos.entry_fee_ps = (pos.entry_fee_ps * pos.qty + fill.fee) / total
+            pos.qty = total
+            pos.tranches += 1
+            pos.last_add_ts = now
+            pos.last_tranche_px = fill.price
+            pos.peak = max(pos.peak, fill.price)
+            log.info("ADD  %s +%d @ %.0f (%s) -> %d주 평단 %.0f [%d차]", cs.code, fill.qty, fill.price, act.reason, pos.qty, pos.avg_price, pos.tranches)
+            self.save_state()
+            return
         cs.position = Position(
             code=cs.code,
             qty=fill.qty,
@@ -176,6 +189,11 @@ class TradingEngine:
             features={**snap.as_features(), "entry_reason": act.reason},
             tp_pct=act.tp_pct,
             sl_pct=act.sl_pct,
+            mode=act.mode,
+            full_frac=act.full_frac,
+            invalid_px=act.invalid_px,
+            last_add_ts=now,
+            last_tranche_px=fill.price,
         )
         cs.trades_today += 1
         if act.overnight:
@@ -215,6 +233,8 @@ class TradingEngine:
             "hold_sec": int((now - pos.entry_ts).total_seconds()),
             "carried": pos.entry_ts.date() < now.date(),
             "sl_pct": pos.sl_pct,
+            "mode": pos.mode,
+            "tranches": pos.tranches,
             **{f"f_{k}": v for k, v in pos.features.items()},
         }
         self.trades.append(rec)
@@ -252,6 +272,12 @@ class TradingEngine:
                     "peak": cs.position.peak,
                     "tp_pct": cs.position.tp_pct,
                     "sl_pct": cs.position.sl_pct,
+                    "mode": cs.position.mode,
+                    "full_frac": cs.position.full_frac,
+                    "tranches": cs.position.tranches,
+                    "invalid_px": cs.position.invalid_px,
+                    "last_add_ts": cs.position.last_add_ts.isoformat() if cs.position.last_add_ts else None,
+                    "last_tranche_px": cs.position.last_tranche_px,
                     "features": cs.position.features,
                 }
                 for cs in self.states.values()
@@ -278,6 +304,12 @@ class TradingEngine:
                     peak=d.get("peak", d["avg_price"]),
                     tp_pct=d.get("tp_pct", 0.0),
                     sl_pct=d.get("sl_pct", 0.0),
+                    mode=d.get("mode", "flow"),
+                    full_frac=d.get("full_frac", 0.0),
+                    tranches=d.get("tranches", 1),
+                    invalid_px=d.get("invalid_px", 0.0),
+                    last_add_ts=datetime.fromisoformat(d["last_add_ts"]) if d.get("last_add_ts") else None,
+                    last_tranche_px=d.get("last_tranche_px", 0.0),
                     features=d.get("features", {}),
                 )
         return data

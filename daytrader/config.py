@@ -84,6 +84,25 @@ class Params:
     tp_atr_mult: float = 0.0  # 0 이면 익절은 tp_pct 고정
     risk_per_trade: float = 0.006  # 손절 시 자본 대비 손실 목표 -> 포지션 크기 = risk / 손절폭
 
+    # --- 분할 매수: 과대낙폭 후 저점 형성 (dip)
+    dip_enabled: bool = True
+    dip_lookback_min: int = 15
+    dip_min_drop_pct: float = 0.015  # 최근 고점 -> 저점 낙폭 하한
+    dip_atr_mult: float = 3.0  # 또는 1분 평균 변동폭의 3배 (둘 중 큰 값)
+    dip_bounce_pct: float = 0.002  # 저점에서 최소 이만큼 반등 확인 후 진입(떨어지는 칼날 금지)
+    dip_max_bounce_pct: float = 0.012  # 이미 너무 반등했으면 추격 금지
+    dip_settle_sec: int = 20  # 신저점 이후 최소 경과 시간
+    dip_score_10s: float = 5.0
+    dip_min_delta60: float = -0.35  # 1분 순매도 압력이 이보다 심하면 아직 투매 중
+    dip_break_buffer: float = 0.003  # 저점 이탈 판정: 저점 x (1 - 0.3%) 아래면 전량 청산
+    dip_t1: float = 0.4  # 1차 매수 비중(목표 수량 대비)
+    dip_t2: float = 0.3  # 2차. 3차 = 1 - t1 - t2
+    dip_max_tranches: int = 3
+    dip_add_gap_sec: int = 45
+    dip_confirm_score: float = 10.0  # 추가매수(확인형): 저점이 높아지고 1분 점수가 이 이상
+    dip_add_step_pct: float = 0.006  # 추가매수(하방형): 직전 매수가 대비 이만큼 더 눌렸을 때
+    dip_allow_deeper_add: bool = True
+
     # --- 뉴스 게이트
     news_gate: bool = True
 
@@ -133,6 +152,13 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "min_atr1m": (0.0005, 0.005),
     "sl_atr_mult": (1.5, 4.0),
     "tp_atr_mult": (0.0, 6.0),
+    "dip_min_drop_pct": (0.008, 0.04),
+    "dip_atr_mult": (2.0, 6.0),
+    "dip_bounce_pct": (0.0005, 0.006),
+    "dip_settle_sec": (5, 90),
+    "dip_score_10s": (-10, 30),
+    "dip_confirm_score": (0, 40),
+    "dip_add_step_pct": (0.003, 0.015),
 }
 
 # 자금·리스크·안전장치 관련: 사람만 바꿀 수 있다.
@@ -144,6 +170,12 @@ LOCKED = {
     "sl_max_pct",
     "vol_adaptive",
     "news_gate",
+    "dip_enabled",
+    "dip_break_buffer",
+    "dip_t1",
+    "dip_t2",
+    "dip_max_tranches",
+    "dip_allow_deeper_add",
     "overnight_keep_frac",
     "overnight_entry_frac",
     "overnight_enabled",

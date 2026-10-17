@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from .config import Params
 from .costs import tick_size
@@ -105,6 +105,10 @@ class FlowSnapshot:
     score10: float
     score60: float
     score300: float
+    hi_lb: int = 0  # 최근 dip_lookback_min 분 고가
+    lo_lb: int = 0  # 같은 기간 저가
+    lo_ts: datetime | None = None  # 그 저가가 찍힌 시각
+    hl2: int = 0  # 마지막 완성된 1분봉 2개의 저가 중 낮은 값(저점이 높아지는지 확인용)
 
     @property
     def vwap_dev(self) -> float:
@@ -124,6 +128,8 @@ class FlowSnapshot:
             "ret300": round(self.s300.ret, 4),
             "trades60": self.s60.n,
             "atr1m": round(self.atr1m, 5),
+            "drop_lb": round(1 - self.lo_lb / self.hi_lb, 4) if self.hi_lb else 0.0,
+            "bounce_lb": round(self.price / self.lo_lb - 1, 4) if self.lo_lb else 0.0,
         }
 
 
@@ -143,7 +149,8 @@ class FlowAnalyzer:
         self.sess_notional = 0.0
         self._hist: deque[float] = deque(maxlen=2000)
         self._n = 0
-        self._bar: list | None = None  # [분 키, 고가, 저가, 종가]
+        self._bar: list | None = None  # [분 키, 고가, 저가, 종가, 저가 시각]
+        self._bars: deque[tuple] = deque(maxlen=60)  # 완성된 1분봉
         self._ranges: deque[float] = deque(maxlen=60)
         self.big_thr = float(params.big_trade_floor_krw)
 
@@ -158,17 +165,36 @@ class FlowAnalyzer:
         self.last_side = 0
         self.last_quote = None
         self._bar = None
+        self._bars.clear()
         self._ranges.clear()
 
     def _bar_update(self, ts: datetime, price: int) -> None:
         key = ts.replace(second=0, microsecond=0)
         b = self._bar
         if b is None or b[0] != key:
-            if b is not None and b[3] > 0:
-                self._ranges.append((b[1] - b[2]) / b[3])
-            self._bar = [key, price, price, price]
+            if b is not None:
+                self._bars.append(tuple(b))
+                if b[3] > 0:
+                    self._ranges.append((b[1] - b[2]) / b[3])
+            self._bar = [key, price, price, price, ts]
         else:
-            b[1], b[2], b[3] = max(b[1], price), min(b[2], price), price
+            if price > b[1]:
+                b[1] = price
+            if price < b[2]:
+                b[2] = price
+                b[4] = ts
+            b[3] = price
+
+    def _dip_info(self, now: datetime) -> tuple[int, int, datetime | None, int]:
+        cut = now.replace(second=0, microsecond=0) - timedelta(minutes=self.p.dip_lookback_min)
+        done = [b for b in self._bars if b[0] >= cut]
+        bars = done + ([tuple(self._bar)] if self._bar and self._bar[0] >= cut else [])
+        if not bars:
+            return 0, 0, None, 0
+        lo_bar = min(bars, key=lambda b: b[2])
+        last2 = done[-2:]
+        hl2 = min(b[2] for b in last2) if len(last2) == 2 else 0
+        return max(b[1] for b in bars), lo_bar[2], lo_bar[4], hl2
 
     def _atr1m(self) -> float:
         n = self.p.atr_minutes
@@ -272,6 +298,7 @@ class FlowAnalyzer:
         stats = {k: w.stats() for k, w in self.win.items()}
         scores = {k: self._score(k, stats[k], ob_imb, now) for k in stats}
         vwap = self.sess_notional / self.sess_vol if self.sess_vol else 0.0
+        hi_lb, lo_lb, lo_ts, hl2 = self._dip_info(now)
         return FlowSnapshot(
             ts=now,
             price=self.last_price,
@@ -279,6 +306,10 @@ class FlowAnalyzer:
             bid1=bid1,
             vwap=vwap,
             atr1m=self._atr1m(),
+            hi_lb=hi_lb,
+            lo_lb=lo_lb,
+            lo_ts=lo_ts,
+            hl2=hl2,
             cvd=self.cvd,
             ob_imb=ob_imb,
             top_imb=top_imb,

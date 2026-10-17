@@ -61,6 +61,12 @@ class Position:
     features: dict = field(default_factory=dict)
     tp_pct: float = 0.0  # 진입 시점 변동성으로 정한 익절/손절 (0 이면 params 기본값)
     sl_pct: float = 0.0
+    mode: str = "flow"  # flow | dip
+    full_frac: float = 0.0  # dip: 전 차수 합계 목표 비중(자본 대비)
+    tranches: int = 1
+    invalid_px: float = 0.0  # dip: 이 가격 이하로 내려가면 '저점 형성' 가설 폐기 -> 전량 청산
+    last_add_ts: datetime | None = None
+    last_tranche_px: float = 0.0
 
 
 @dataclass
