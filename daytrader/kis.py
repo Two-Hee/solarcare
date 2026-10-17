@@ -199,6 +199,45 @@ class KisRest:
             hour = earliest
         return sorted(seen.values(), key=lambda b: b.ts)
 
+    def financials(self, code: str, quarterly: bool = True):
+        """손익계산서 + 재무비율 + 대차대조표를 결산월로 합쳐 FinRow 목록으로. 금액은 억원."""
+        from .fin import FinRow
+
+        base = {
+            "FID_DIV_CLS_CODE": "1" if quarterly else "0",
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": code,
+        }
+
+        def get(path, tr):
+            return self._call("GET", f"/uapi/domestic-stock/v1/finance/{path}", tr, params=base).get("output", []) or []
+
+        rows: dict[str, FinRow] = {}
+
+        def fnum(r, k):
+            try:
+                v = str(r.get(k, "")).replace(",", "").strip()
+                return float(v) if v not in ("", "-") else None
+            except ValueError:
+                return None
+
+        for r in get("income-statement", "FHKST66430200"):
+            per = r.get("stac_yymm", "")
+            if len(per) == 6:
+                x = rows.setdefault(per, FinRow(per))
+                x.sales, x.op_profit, x.net_profit = fnum(r, "sale_account"), fnum(r, "bsop_prti"), fnum(r, "thtr_ntin")
+        for r in get("financial-ratio", "FHKST66430300"):
+            per = r.get("stac_yymm", "")
+            if len(per) == 6:
+                x = rows.setdefault(per, FinRow(per))
+                x.debt_ratio, x.reserve_ratio = fnum(r, "lblt_rate"), fnum(r, "rsrv_rate")
+        for r in get("balance-sheet", "FHKST66430100"):
+            per = r.get("stac_yymm", "")
+            if len(per) == 6:
+                x = rows.setdefault(per, FinRow(per))
+                x.equity, x.capital = fnum(r, "total_cptl"), fnum(r, "cpfn")
+        return sorted(rows.values(), key=lambda x: x.period)
+
     def news_titles(self, code: str) -> list[tuple[str, str]]:
         """종합 시황/공시 제목. [(YYYYMMDD, 제목)]. 모의서버에서 미지원일 수 있다."""
         j = self._call(

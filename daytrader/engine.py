@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable
@@ -36,6 +36,8 @@ class CodeState:
     last_eval: datetime | None = None
     daily: DailyContext | None = None
     closebet_date: date | None = None
+    p: Params | None = None  # 종목별 파라미터(없으면 공통)
+    strategy: FlowStrategy | None = None
 
 
 class TradingEngine:
@@ -48,12 +50,24 @@ class TradingEngine:
         trade_sink: Callable[[dict], None] | None = None,
         state_path: str | Path | None = None,
         kill_file: str | Path | None = "STOP",
+        params_by_code: dict[str, Params] | None = None,
     ):
         self.p = params
+        self.params_by_code = params_by_code or {}
+        pp = lambda c: self.params_by_code.get(c, params)  # noqa: E731
         self.broker = broker
         self.strategy = FlowStrategy(params)
-        self.risk = RiskManager(params, kill_file)
-        self.states = {c: CodeState(c, FlowAnalyzer(c, params), daily=DailyContext()) for c in codes}
+        # 계좌 단위 리스크는 공통 값. 이월 갭 가정은 종목들 중 가장 보수적인 값을 쓴다
+        risk_p = replace(
+            params,
+            overnight_gap_pct=max(pp(c).overnight_gap_pct for c in codes),
+            overnight_risk=min(pp(c).overnight_risk for c in codes),
+        )
+        self.risk = RiskManager(risk_p, kill_file)
+        self.states = {
+            c: CodeState(c, FlowAnalyzer(c, pp(c)), daily=DailyContext(), p=pp(c), strategy=FlowStrategy(pp(c)))
+            for c in codes
+        }
         self.daily_provider = daily_provider
         self.trade_sink = trade_sink
         self.state_path = Path(state_path) if state_path else None
@@ -118,7 +132,7 @@ class TradingEngine:
 
     def _manage(self, cs: CodeState, now: datetime) -> None:
         pos = cs.position
-        if not pos and cs.last_eval and (now - cs.last_eval).total_seconds() < self.p.eval_interval_sec:
+        if not pos and cs.last_eval and (now - cs.last_eval).total_seconds() < cs.p.eval_interval_sec:
             return
         cs.last_eval = now
         eq = self.equity()
@@ -138,7 +152,7 @@ class TradingEngine:
             overnight_room=self.risk.overnight_room(eq, self.overnight_exposure()),
             closebet_done=cs.closebet_date == now.date(),
         )
-        act = self.strategy.decide(ctx)
+        act = cs.strategy.decide(ctx)
         if act.kind == "buy":
             self._buy(cs, now, snap, act)
         elif act.kind == "sell" and pos:
@@ -156,7 +170,7 @@ class TradingEngine:
 
     def _buy(self, cs: CodeState, now: datetime, snap: FlowSnapshot, act: Action) -> None:
         last, ask1, bid1 = self._quote_prices(cs, snap)
-        ref = (ask1 or last) + self.p.slip_ticks * tick_size(ask1 or last)
+        ref = (ask1 or last) + cs.p.slip_ticks * tick_size(ask1 or last)
         budget = min(self.equity() * act.frac, self.broker.cash() * 0.995)
         qty = int(budget // ref) if ref > 0 else 0
         if qty <= 0:
@@ -244,7 +258,7 @@ class TradingEngine:
         pos.qty -= qty
         if pos.qty <= 0:
             cs.position = None
-            cs.cooldown_until = now + timedelta(seconds=self.p.cooldown_sec)
+            cs.cooldown_until = now + timedelta(seconds=cs.p.cooldown_sec)
         elif mark_overnight:
             pos.overnight = True
         self.save_state()

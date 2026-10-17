@@ -81,6 +81,8 @@ class DailyContext:
     news_note: str = ""
     regime: str = "unknown"  # 일봉 국면(regime.py)
     regime_note: str = ""
+    fin: str = "ok"  # ok | caution | block  (재무·종목 상태 게이트, fin.py)
+    fin_note: str = ""
 
     @property
     def investor_ok(self) -> bool | None:

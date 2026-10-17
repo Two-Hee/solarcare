@@ -20,6 +20,14 @@ def _fmt(m: dict) -> str:
     )
 
 
+def _params(a, codes):
+    """공통 params.json + params/종목코드.json 덮어쓰기. 덮어쓴 종목은 알려 준다."""
+    base, by_code = Params.load_for(codes, a.params)
+    for c in by_code:
+        print(f"[종목별 파라미터] {c}: params/{c}.json 적용")
+    return base, by_code
+
+
 def cmd_selftest(a) -> int:
     from .kis import KisRest
 
@@ -68,8 +76,8 @@ def cmd_run(a) -> int:
     from .live import run_live
 
     s = Settings.from_env()
-    p = Params.load(a.params)
-    eng = asyncio.run(run_live(a.codes, s, p, a.broker, a.cash, not a.no_record, a.until))
+    p, by_code = _params(a, a.codes)
+    eng = asyncio.run(run_live(a.codes, s, p, a.broker, a.cash, not a.no_record, a.until, by_code))
     print(_fmt(__import__("daytrader.replay", fromlist=["metrics"]).metrics(eng.trades, a.cash)))
     return 0
 
@@ -122,12 +130,12 @@ def cmd_synth(a) -> int:
 def cmd_backtest(a) -> int:
     from .replay import load_all, run_replay
 
-    p = Params.load(a.params)
+    p, by_code = _params(a, a.codes)
     days = load_all(a.data, a.codes)
     if not days:
         print(f"{a.data}/ticks 에 {a.codes} 데이터가 없습니다. record 또는 synth 를 먼저 실행하세요.")
         return 1
-    eng, m = run_replay(a.codes, days, p, a.cash, a.data)
+    eng, m = run_replay(a.codes, days, p, a.cash, a.data, params_by_code=by_code)
     print(f"{len(days)}거래일 | {_fmt(m)}")
     carried = [t for t in eng.trades if t["carried"]]
     if carried:
@@ -235,6 +243,57 @@ def cmd_analyze(a) -> int:
     md, path = run(a.code, days, p, r)
     print(md)
     print(f"\n리포트 저장: {path}")
+    return 0
+
+
+def cmd_calibrate(a) -> int:
+    from .bars import load_days
+    from .calibrate import calibrate, render, write_override
+
+    days = load_days(a.data, a.code, a.since, a.until, a.last)
+    if not days:
+        print(f"{a.data}/minute/{a.code} 에 1분봉이 없습니다. bars-fetch / bars-import / bars-build 로 먼저 만드세요.")
+        return 1
+    p = Params.load(a.params)
+    res = calibrate(days, p)
+    print(render(a.code, res, p))
+    if a.write and res["suggest"]:
+        print(f"\n저장: {write_override(a.code, res['suggest'])}  (이후 run/backtest 가 이 종목에 자동 적용)")
+    elif a.write:
+        print("\n제안이 없어 저장하지 않았습니다.")
+    return 0
+
+
+def cmd_fin(a) -> int:
+    from .fin import assess, load_csv, csv_path, assess_fin
+
+    p = Params.load(a.params)
+    if a.offline:
+        rows = load_csv(csv_path(a.data, a.code))
+        gate, flags = assess_fin(rows, None, p), None
+    else:
+        from .kis import KisRest
+
+        rest = KisRest(Settings.from_env())
+        gate, rows, flags = assess(a.code, p, rest, a.data)
+        if a.raw:
+            raw = rest.price(a.code)
+            keys = ("mrkt_warn_cls_code", "short_over_yn", "invt_caful_yn", "temp_stop_yn", "mang_issu_cls_code", "sltr_yn", "vi_cls_code", "per", "pbr", "hts_avls")
+            print("현재가 응답의 상태 필드 원본:", {k: raw.get(k, "<없음>") for k in keys})
+    if not rows:
+        print("재무 데이터가 없습니다. KIS 조회가 안 되면 data/fin/종목코드.csv 에 직접 입력하세요(README 참고).")
+    else:
+        print(f"{'분기':>8} {'매출(억)':>9} {'영업이익':>9} {'영업이익률':>8} {'부채비율':>8} {'유보율':>9}  비고")
+        for r in rows[-8:]:
+            om = f"{r.op_profit / r.sales * 100:.1f}%" if r.sales and r.op_profit is not None else "-"
+            f = lambda v, d=0: "-" if v is None else f"{v:,.{d}f}"  # noqa: E731
+            print(f"{r.period:>8} {f(r.sales):>9} {f(r.op_profit):>9} {om:>8} {f(r.debt_ratio, 1):>8} {f(r.reserve_ratio, 0):>9}  {'예상치' if r.estimate else ''}")
+    if flags is not None:
+        print(f"종목 상태: 경고코드 {flags.warn} · 단기과열 {flags.short_overheat} · 관리 {flags.managed} · 정리매매 {flags.liquidation} · "
+              f"정지 {flags.halted} · 유의환기 {flags.caution_notice}" + ("" if flags.known else "  (플래그 필드를 읽지 못함 - --raw 로 확인)"))
+        if flags.info:
+            print("참고(PER/PBR/시총 등):", flags.info)
+    print(f"\n[{gate.level.upper()}] {gate.note}")
     return 0
 
 
@@ -349,6 +408,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--sl", type=float, default=0.010)
     sp.add_argument("--hold", type=int, default=45, help="최대 보유(분)")
     sp.add_argument("--slip", type=int, default=1, help="슬리피지(틱)")
+    sp = add("calibrate", cmd_calibrate, "종목별 파라미터 보정 제안(자기 1분봉 기반)")
+    sp.add_argument("code")
+    sp.add_argument("--data", default="data")
+    sp.add_argument("--since", default="")
+    sp.add_argument("--until", default="")
+    sp.add_argument("--last", type=int, default=0)
+    sp.add_argument("--write", action="store_true", help="제안을 params/종목코드.json 에 저장(사람이 검토한 뒤에만)")
+    sp = add("fin", cmd_fin, "재무·종목 상태 점검(부분 분석)")
+    sp.add_argument("code")
+    sp.add_argument("--data", default="data")
+    sp.add_argument("--offline", action="store_true", help="KIS 호출 없이 data/fin/종목코드.csv 만 사용")
+    sp.add_argument("--raw", action="store_true", help="종목 상태 필드 원본 출력(필드명 검증용)")
     sp = add("regime", cmd_regime, "일봉 국면 감지(횡보 후 거래대금 폭발 돌파)")
     sp.add_argument("code")
     sp.add_argument("--csv", default="", help="date,open,high,low,close,value CSV (없으면 KIS 에서 조회)")

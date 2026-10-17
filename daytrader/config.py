@@ -63,7 +63,7 @@ class Params:
     position_frac: float = 0.45  # 종목당 최대 비중(자본 대비)
     daily_loss_limit: float = 0.02
     max_overnight_exposure: float = 0.35
-    overnight_gap_pct: float = 0.05  # 정규장 마감 후~다음 정규장 사이 불리한 갭 가정(NXT 시간외·장전에 손절 불가). 애경케미칼 10/15 시간외 -4.2% 관측
+    overnight_gap_pct: float = 0.04  # 정규장 마감 후~다음 정규장 사이 불리한 갭 가정(NXT 시간외·장전에 손절 불가). 보수적 기본값이며 종목별로 calibrate 가 제안
     overnight_risk: float = 0.0075  # 그 갭이 났을 때 감수하는 자본 대비 손실 -> 이월 총 노출 한도 = risk / gap
 
     # --- 수급 분석
@@ -119,6 +119,12 @@ class Params:
     # --- 일봉 국면 게이트(횡보 후 거래대금 폭발 돌파 구간만 매매). 검증 전이라 기본 꺼짐
     regime_gate: bool = False
 
+    # --- 재무·종목 상태 게이트 (fin.py). 데이터가 없으면 통과
+    fin_gate: bool = True
+    fin_debt_caution: float = 200.0  # 부채비율(%) 이상이면 caution
+    fin_loss_quarters_caution: int = 2  # 영업적자 연속 분기 수 이상이면 caution
+    fin_sales_yoy_caution: float = -0.20  # 매출 YoY 가 이 이하면 caution
+
     # --- 뉴스 게이트
     news_gate: bool = True
 
@@ -141,6 +147,20 @@ class Params:
             except json.JSONDecodeError as e:
                 raise SystemExit(f"{p} 를 읽을 수 없습니다(JSON 오류: {e}). 지우면 기본값으로 시작합니다.")
         return cls()
+
+    @classmethod
+    def load_for(cls, codes: list[str], path: str | Path = "params.json", override_dir: str | Path = "params") -> tuple["Params", dict[str, "Params"]]:
+        """공통 params.json + 종목별 덮어쓰기(params/종목코드.json, 바꿀 항목만 적으면 됨)."""
+        base = cls.load(path)
+        by_code: dict[str, Params] = {}
+        for c in codes:
+            f = Path(override_dir) / f"{c}.json"
+            if f.exists():
+                try:
+                    by_code[c] = cls.from_dict({**asdict(base), **json.loads(f.read_text(encoding="utf-8"))})
+                except json.JSONDecodeError as e:
+                    raise SystemExit(f"{f} 를 읽을 수 없습니다(JSON 오류: {e}).")
+        return base, by_code
 
     def save(self, path: str | Path = "params.json") -> None:
         Path(path).write_text(
@@ -192,6 +212,10 @@ LOCKED = {
     "sl_max_pct",
     "vol_adaptive",
     "news_gate",
+    "fin_gate",
+    "fin_debt_caution",
+    "fin_loss_quarters_caution",
+    "fin_sales_yoy_caution",
     "regime_gate",
     "use_levels",
     "dip_enabled",

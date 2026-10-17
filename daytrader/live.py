@@ -30,6 +30,7 @@ async def run_live(
     paper_cash: float = 10_000_000,
     record: bool = True,
     until: str = "15:31",
+    params_by_code: dict[str, Params] | None = None,
 ) -> TradingEngine:
     rest = KisRest(settings)
     cost = CostModel(params.fee_rate, params.sell_tax, params.slip_ticks)
@@ -68,6 +69,18 @@ async def run_live(
             log.warning("뉴스 게이트 조회 실패(%s): %s", code, e)
             return {}
 
+    def fin_fields(code):
+        if not params.fin_gate:
+            return {}
+        try:
+            from .fin import assess as fin_assess
+
+            g, _rows, _flags = fin_assess(code, params, rest, settings.data_dir)
+            return {"fin": g.level, "fin_note": g.note}
+        except Exception as e:  # 재무/상태 조회 실패는 매매를 막지 않는다(ok 로 둔다)
+            log.warning("재무·종목상태 조회 실패(%s): %s", code, e)
+            return {}
+
     def daily_provider(code, d):
         if code not in cache:
             try:
@@ -84,12 +97,12 @@ async def run_live(
                     reg = {"regime": r.state, "regime_note": r.note}
                 except Exception as e:  # 일봉 조회 실패 -> unknown (게이트가 켜져 있으면 쉰다)
                     log.warning("일봉 국면 조회 실패(%s): %s", code, e)
-            cache[code] = replace(ctx, **news_fields(code), **reg)
-            log.info("뉴스 게이트 %s: %s %s | 국면: %s %s", code, cache[code].news, cache[code].news_note,
-                     cache[code].regime, cache[code].regime_note)
+            cache[code] = replace(ctx, **news_fields(code), **fin_fields(code), **reg)
+            log.info("게이트 %s | 뉴스: %s %s | 재무/상태: %s %s | 국면: %s %s", code, cache[code].news, cache[code].news_note,
+                     cache[code].fin, cache[code].fin_note, cache[code].regime, cache[code].regime_note)
         return cache[code]
 
-    engine = TradingEngine(codes, params, broker, daily_provider, sink, state_path)
+    engine = TradingEngine(codes, params, broker, daily_provider, sink, state_path, params_by_code=params_by_code)
     saved = engine.load_state()
     if isinstance(broker, PaperBroker):
         for p in saved.get("positions", []):
@@ -131,10 +144,13 @@ async def run_live(
             await asyncio.sleep(600)
             for cs in engine.states.values():
                 f = await asyncio.to_thread(news_fields, cs.code)
-                if f and cs.daily is not None:
-                    if f["news"] != cs.daily.news:
+                g = await asyncio.to_thread(fin_fields, cs.code)  # 종목 상태 플래그(단기과열 등)는 장중에 바뀔 수 있다
+                if cs.daily is not None:
+                    if f and f["news"] != cs.daily.news:
                         log.warning("뉴스 게이트 변경 %s: %s -> %s (%s)", cs.code, cs.daily.news, f["news"], f["news_note"])
-                    cs.daily = replace(cs.daily, **f)
+                    if g and g["fin"] != cs.daily.fin:
+                        log.warning("재무/상태 게이트 변경 %s: %s -> %s (%s)", cs.code, cs.daily.fin, g["fin"], g["fin_note"])
+                    cs.daily = replace(cs.daily, **f, **g)
 
     log.info("시작: %s broker=%s mode=%s 기록=%s", codes, broker_kind, settings.mode, record)
     try:

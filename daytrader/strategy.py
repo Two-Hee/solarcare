@@ -139,7 +139,9 @@ class FlowStrategy:
         return inv is True or (inv is None and not self.p.require_investor_ok)
 
     def _news_ok_for_overnight(self, c: DecisionCtx) -> bool:
-        return not self.p.news_gate or c.daily.news == "ok"
+        """이월은 뉴스·재무 게이트가 모두 ok 일 때만."""
+        p = self.p
+        return (not p.news_gate or c.daily.news == "ok") and (not p.fin_gate or c.daily.fin == "ok")
 
     # ------------------------------------------------------------------ 진입
     def _entry(self, c: DecisionCtx, t: int) -> Action:
@@ -150,6 +152,8 @@ class FlowStrategy:
             return HOLD
         if p.news_gate and c.daily.news == "block":
             return HOLD
+        if p.fin_gate and c.daily.fin == "block":
+            return HOLD  # 자본잠식·거래정지·관리/경고/단기과열 종목은 신규 진입 금지
         if p.regime_gate and c.daily.regime not in ("breakout", "expansion"):
             return HOLD  # 국면을 모르거나(unknown) 돌파/확장 구간이 아니면 쉰다
         size_mult = 0.5 if (p.news_gate and c.daily.news == "caution") else 1.0

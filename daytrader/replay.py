@@ -26,9 +26,13 @@ def load_daily_context(path: str | Path) -> dict[str, dict[str, tuple[int, int]]
     return out
 
 
-def make_daily_provider(data_dir: str | Path):
+def make_daily_provider(data_dir: str | Path, params: Params | None = None):
+    from .fin import assess_fin, csv_path, fin_as_of, load_csv
+
+    params = params or Params()
     cache: dict[str, dict[str, tuple[int, int]]] = {}
     bars_cache: dict[str, list] = {}
+    fin_cache: dict[str, list] = {}
 
     def provider(code: str, d: date) -> DailyContext:
         from dataclasses import replace
@@ -38,6 +42,7 @@ def make_daily_provider(data_dir: str | Path):
         if code not in cache:
             cache[code] = load_daily_context(Path(data_dir) / "daily" / f"{code}.csv")
             bars_cache[code] = load_daily_bars(Path(data_dir) / "daily_bars" / f"{code}.csv")
+            fin_cache[code] = load_csv(csv_path(data_dir, code)) if params.fin_gate else []
         ds = d.strftime("%Y%m%d")
         ctx = DailyContext()
         rows = cache[code]
@@ -48,6 +53,9 @@ def make_daily_provider(data_dir: str | Path):
         if bars_cache[code]:  # 당일 이후 데이터는 보지 않는다(룩어헤드 방지)
             r = detect([b for b in bars_cache[code] if b.date < ds])
             ctx = replace(ctx, regime=r.state, regime_note=r.note)
+        if fin_cache[code]:  # 공시 시차(분기 종료 후 50일)를 지킨 재무 게이트. 종목 상태 플래그는 과거 값이 없어 제외
+            g = assess_fin(fin_as_of(fin_cache[code], d), None, params)
+            ctx = replace(ctx, fin=g.level, fin_note=g.note)
         return ctx
 
     return provider
@@ -91,10 +99,11 @@ def run_replay(
     initial_cash: float = 10_000_000,
     data_dir: str | Path = "data",
     force_close_at_end: bool = True,
+    params_by_code: dict[str, Params] | None = None,
 ) -> tuple[TradingEngine, dict]:
     """날짜 순서대로 재생한다. 이월 포지션은 다음 날로 이어진다."""
     broker = PaperBroker(initial_cash, CostModel(params.fee_rate, params.sell_tax, params.slip_ticks))
-    engine = TradingEngine(codes, params, broker, daily_provider=make_daily_provider(data_dir), kill_file=None)
+    engine = TradingEngine(codes, params, broker, daily_provider=make_daily_provider(data_dir, params), kill_file=None, params_by_code=params_by_code)
     for day in sorted(day_events):
         events = day_events[day]
         for e in events:
