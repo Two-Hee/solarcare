@@ -75,6 +75,18 @@ class Params:
     w_ret: float = 0.15
     w_absorb: float = 0.10
 
+    # --- 변동성 연동(1분봉 평균 변동폭 atr1m 기준)
+    vol_adaptive: bool = True
+    atr_minutes: int = 15
+    min_atr1m: float = 0.0015  # 1분 평균 변동폭이 이보다 작으면 +1.3% 도달이 어려워 진입 안 함
+    sl_atr_mult: float = 2.5  # 손절폭 = max(sl_pct, 2.5 x atr1m)
+    sl_max_pct: float = 0.02  # 손절폭이 이를 넘을 만큼 출렁이면 진입 안 함
+    tp_atr_mult: float = 0.0  # 0 이면 익절은 tp_pct 고정
+    risk_per_trade: float = 0.006  # 손절 시 자본 대비 손실 목표 -> 포지션 크기 = risk / 손절폭
+
+    # --- 뉴스 게이트
+    news_gate: bool = True
+
     # --- 비용
     fee_rate: float = 0.00015
     sell_tax: float = 0.0018
@@ -118,6 +130,9 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "overnight_entry_score": (30, 80),
     "overnight_tp_pct": (0.01, 0.04),
     "overnight_sl_pct": (0.006, 0.02),
+    "min_atr1m": (0.0005, 0.005),
+    "sl_atr_mult": (1.5, 4.0),
+    "tp_atr_mult": (0.0, 6.0),
 }
 
 # 자금·리스크·안전장치 관련: 사람만 바꿀 수 있다.
@@ -125,6 +140,10 @@ LOCKED = {
     "position_frac",
     "daily_loss_limit",
     "max_overnight_exposure",
+    "risk_per_trade",
+    "sl_max_pct",
+    "vol_adaptive",
+    "news_gate",
     "overnight_keep_frac",
     "overnight_entry_frac",
     "overnight_enabled",

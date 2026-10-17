@@ -174,6 +174,8 @@ class TradingEngine:
             overnight=act.overnight,
             peak=fill.price,
             features={**snap.as_features(), "entry_reason": act.reason},
+            tp_pct=act.tp_pct,
+            sl_pct=act.sl_pct,
         )
         cs.trades_today += 1
         if act.overnight:
@@ -212,6 +214,7 @@ class TradingEngine:
             "reason": reason,
             "hold_sec": int((now - pos.entry_ts).total_seconds()),
             "carried": pos.entry_ts.date() < now.date(),
+            "sl_pct": pos.sl_pct,
             **{f"f_{k}": v for k, v in pos.features.items()},
         }
         self.trades.append(rec)
@@ -247,6 +250,8 @@ class TradingEngine:
                     "entry_fee_ps": cs.position.entry_fee_ps,
                     "overnight": cs.position.overnight,
                     "peak": cs.position.peak,
+                    "tp_pct": cs.position.tp_pct,
+                    "sl_pct": cs.position.sl_pct,
                     "features": cs.position.features,
                 }
                 for cs in self.states.values()
@@ -271,6 +276,8 @@ class TradingEngine:
                     entry_fee_ps=d.get("entry_fee_ps", 0.0),
                     overnight=d.get("overnight", False),
                     peak=d.get("peak", d["avg_price"]),
+                    tp_pct=d.get("tp_pct", 0.0),
+                    sl_pct=d.get("sl_pct", 0.0),
                     features=d.get("features", {}),
                 )
         return data

@@ -139,6 +139,18 @@ class KisRest:
             sum(num(r, "frgn_ntby_qty") for r in rows), sum(num(r, "orgn_ntby_qty") for r in rows),
         )
 
+    def news_titles(self, code: str) -> list[tuple[str, str]]:
+        """종합 시황/공시 제목. [(YYYYMMDD, 제목)]. 모의서버에서 미지원일 수 있다."""
+        j = self._call(
+            "GET", "/uapi/domestic-stock/v1/quotations/news-title", "FHKST01011800",
+            params={
+                "FID_NEWS_OFER_ENTP_CODE": "", "FID_COND_MRKT_CLS_CODE": "", "FID_INPUT_ISCD": code,
+                "FID_TITL_CNTT": "", "FID_INPUT_DATE_1": "", "FID_INPUT_HOUR_1": "",
+                "FID_RANK_SORT_CLS_CODE": "", "FID_INPUT_SRNO": "",
+            },
+        )
+        return [(r.get("data_dt", ""), r.get("hts_pbnt_titl_cntt", "")) for r in j.get("output", [])]
+
     # ------------------------------------------------------------------ 계좌/주문
     def balance(self) -> tuple[float, dict[str, tuple[int, float]]]:
         """(주문가능 예수금, {종목: (보유수량, 평균단가)})"""

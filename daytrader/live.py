@@ -51,17 +51,32 @@ async def run_live(
         with trade_log.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
+    from dataclasses import replace
+
+    from .models import DailyContext
+    from .news import assess
+
     cache: dict = {}
+
+    def news_fields(code):
+        if not params.news_gate:
+            return {}
+        try:
+            g = assess(code, rest, settings.data_dir)
+            return {"news": g.level, "news_note": (g.note + " " + g.summary).strip()}
+        except Exception as e:  # 뉴스 조회가 실패해도 매매 자체는 가능(게이트는 ok 로 둔다)
+            log.warning("뉴스 게이트 조회 실패(%s): %s", code, e)
+            return {}
 
     def daily_provider(code, d):
         if code not in cache:
             try:
-                cache[code] = rest.investor_daily(code)
+                ctx = rest.investor_daily(code)
             except Exception as e:  # 수급 일봉이 안 와도 매매 자체는 가능
                 log.warning("투자자 일별 수급 조회 실패(%s): %s", code, e)
-                from .models import DailyContext
-
-                cache[code] = DailyContext()
+                ctx = DailyContext()
+            cache[code] = replace(ctx, **news_fields(code))
+            log.info("뉴스 게이트 %s: %s %s", code, cache[code].news, cache[code].news_note)
         return cache[code]
 
     engine = TradingEngine(codes, params, broker, daily_provider, sink, state_path)
@@ -100,9 +115,20 @@ async def run_live(
             if hms("09:00") <= sod(now):
                 engine.on_clock(now)
 
+    async def news_refresh() -> None:
+        """장중 10분마다 뉴스 게이트를 다시 평가한다(블로킹 호출은 스레드로)."""
+        while not stop.is_set():
+            await asyncio.sleep(600)
+            for cs in engine.states.values():
+                f = await asyncio.to_thread(news_fields, cs.code)
+                if f and cs.daily is not None:
+                    if f["news"] != cs.daily.news:
+                        log.warning("뉴스 게이트 변경 %s: %s -> %s (%s)", cs.code, cs.daily.news, f["news"], f["news_note"])
+                    cs.daily = replace(cs.daily, **f)
+
     log.info("시작: %s broker=%s mode=%s 기록=%s", codes, broker_kind, settings.mode, record)
     try:
-        await asyncio.gather(stream.run(on_event, stop), clock())
+        await asyncio.gather(stream.run(on_event, stop), clock(), news_refresh())
     finally:
         engine.save_state()
         if rec:

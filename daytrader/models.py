@@ -59,6 +59,8 @@ class Position:
     overnight: bool = False  # 1박2일 보유 확정 여부
     peak: float = 0.0
     features: dict = field(default_factory=dict)
+    tp_pct: float = 0.0  # 진입 시점 변동성으로 정한 익절/손절 (0 이면 params 기본값)
+    sl_pct: float = 0.0
 
 
 @dataclass
@@ -69,6 +71,8 @@ class DailyContext:
     inst_net_1d: int | None = None
     foreign_net_5d: int | None = None
     inst_net_5d: int | None = None
+    news: str = "ok"  # ok | caution | block  (뉴스 게이트)
+    news_note: str = ""
 
     @property
     def investor_ok(self) -> bool | None:

@@ -156,10 +156,25 @@ def cmd_review(a) -> int:
     return 0
 
 
-def cmd_tune(a) -> int:
-    from .tune import tune
+def cmd_news(a) -> int:
+    from .news import assess
 
-    r = tune(a.codes, a.data, Params.load(a.params), initial_cash=a.cash)
+    rest = None
+    if not a.offline:
+        from .kis import KisRest
+
+        rest = KisRest(Settings.from_env())
+    g = assess(a.code, rest, a.data, use_ai=not a.no_ai)
+    print(f"[{g.level.upper()}] {g.note}")
+    if g.summary:
+        print("AI 요약:", g.summary)
+    return 0
+
+
+def cmd_tune(a) -> int:
+    from .tune import DEFAULT_GRID, VOL_GRID, tune
+
+    r = tune(a.codes, a.data, Params.load(a.params), VOL_GRID if a.vol else DEFAULT_GRID, initial_cash=a.cash)
     print(f"후보 {r['candidates_tested']}개 검증. 기준선 검증구간: {_fmt(r['baseline']['valid'])}")
     if r["best"]:
         print(f"제안: {r['params']}  (거부: {r['rejected']})")
@@ -224,7 +239,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--trades", default="logs/trades.jsonl")
     sp.add_argument("--cash", type=float, default=10_000_000)
     sp.add_argument("--no-ai", action="store_true")
+    sp = add("news", cmd_news, "뉴스 게이트 판정(키워드 규칙 + 선택적 AI)")
+    sp.add_argument("code")
+    sp.add_argument("--data", default="data")
+    sp.add_argument("--offline", action="store_true", help="KIS 호출 없이 data/news/CODE.txt 만 사용")
+    sp.add_argument("--no-ai", action="store_true")
     sp = add("tune", cmd_tune, "워크포워드 튜닝(제안만 생성)")
+    sp.add_argument("--vol", action="store_true", help="변동성 큰 종목용 탐색 격자")
     sp.add_argument("codes", nargs="+")
     sp.add_argument("--data", default="data")
     sp.add_argument("--cash", type=float, default=10_000_000)

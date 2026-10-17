@@ -103,6 +103,7 @@ def run_script(engine, events):
 
 
 def make_engine(**kw):
+    kw.setdefault("vol_adaptive", False)  # 변동성 게이트는 별도 테스트에서 검증
     p = Params(**kw)
     br = PaperBroker(10_000_000, CostModel(slip_ticks=0))
     return TradingEngine(["005930"], p, br, kill_file=None), br
@@ -227,3 +228,87 @@ def test_synth_backtest_pipeline_and_review(tmp_path):
     s = summarize(eng.trades, 10_000_000)
     assert s["overall"]["trades"] == m["trades"]
     assert metrics([], 1.0)["trades"] == 0
+
+
+# ---------------------------------------------------------------- 변동성 연동 / 뉴스 게이트
+from daytrader.flow import FlowSnapshot, WindowStats  # noqa: E402
+from daytrader.models import Position  # noqa: E402
+from daytrader.news import classify_rules, combine  # noqa: E402
+from daytrader.strategy import DecisionCtx, FlowStrategy  # noqa: E402
+
+
+def make_snap(**over):
+    strong = WindowStats(n=40, vol=5000, buy_vol=4000, sell_vol=1000, delta_ratio=0.6, strength=400.0, big_n=4,
+                         big_delta_ratio=0.8, ret=0.004)
+    base = dict(ts=at(10, 0), price=70000, ask1=70100, bid1=70000, vwap=69800.0, atr1m=0.004, cvd=9000, ob_imb=0.3,
+                top_imb=0.2, spread_ticks=1.0, s10=strong, s60=strong, s300=WindowStats(n=100, ret=0.006),
+                score10=40.0, score60=50.0, score300=30.0)
+    base.update(over)
+    return FlowSnapshot(**base)
+
+
+def ctx(snap, pos=None, news="ok", **over):
+    base = dict(now=at(10, 0), snap=snap, pos=pos, daily=DailyContext(news=news), trades_today=0, cooldown_until=None,
+                entries_allowed=True, overnight_room=True, closebet_done=False)
+    base.update(over)
+    return DecisionCtx(**base)
+
+
+def test_atr1m_from_minute_bars():
+    a = FlowAnalyzer("A", Params())
+    for m in range(8):  # 매 분 고가-저가 1%
+        a.on_tick(Tick(at(9, 10 + m, 5), "A", 10000, 10, 1))
+        a.on_tick(Tick(at(9, 10 + m, 30), "A", 10100, 10, 1))
+        a.on_tick(Tick(at(9, 10 + m, 50), "A", 10050, 10, 1))
+    assert a.snapshot(at(9, 18, 59)).atr1m == pytest.approx(0.01 / 1.005, rel=0.05)
+    assert FlowAnalyzer("B", Params()).snapshot(at(9, 10)).atr1m == 0.0  # 표본 부족
+
+
+def test_stops_follow_volatility_and_block_wild_or_dead_stocks():
+    st = FlowStrategy(Params())
+    assert st.stops(make_snap(atr1m=0.0)) is None  # 표본 없음
+    assert st.stops(make_snap(atr1m=0.001)) is None  # 너무 조용 -> +1.3% 도달 어려움
+    assert st.stops(make_snap(atr1m=0.0025)) == (0.013, 0.008)  # 0.625% < 기본 손절 0.8%
+    tp, sl = st.stops(make_snap(atr1m=0.004))
+    assert tp == 0.013 and sl == pytest.approx(0.01)
+    assert st.stops(make_snap(atr1m=0.009)) is None  # 2.25% > 상한 2% -> 너무 출렁임
+
+
+def test_position_size_shrinks_as_stop_widens():
+    st = FlowStrategy(Params())
+    narrow = st.decide(ctx(make_snap(atr1m=0.0025)))  # 손절 0.8% -> 0.6%/0.8% = 0.75 -> 상한 0.45
+    wide = st.decide(ctx(make_snap(atr1m=0.007)))  # 손절 1.75% -> 0.6%/1.75% = 0.343
+    assert narrow.kind == wide.kind == "buy"
+    assert narrow.frac == pytest.approx(0.45) and wide.frac == pytest.approx(0.006 / 0.0175)
+    assert wide.sl_pct == pytest.approx(0.0175) and wide.frac * wide.sl_pct <= 0.0061  # 손절 시 손실 ≈ 자본의 0.6%
+
+
+def test_position_uses_its_own_stop_not_default():
+    st = FlowStrategy(Params())
+    pos = Position("A", 10, 70000.0, at(9, 30), peak=70000.0, tp_pct=0.013, sl_pct=0.015)
+    # -1.2%: 기본 손절(0.8%)이면 청산이지만 이 포지션의 손절은 1.5% 라 버틴다
+    assert st.decide(ctx(make_snap(price=69160, score60=5.0, score10=5.0), pos)).kind == "hold"
+    assert st.decide(ctx(make_snap(price=68900, score60=5.0, score10=5.0), pos)).reason == "stop_loss"
+
+
+def test_news_rules_block_and_ai_cannot_downgrade():
+    assert classify_rules(["애경케미칼, 100억 규모 유상증자 결정"]).level == "block"
+    assert classify_rules(["전환사채 발행 공시"]).level == "caution"
+    assert classify_rules(["신소재 공급계약 체결"]).level == "ok"
+    block = classify_rules(["횡령 혐의 발생"])
+    assert combine(block, {"level": "ok", "summary": "괜찮음"}).level == "block"
+    assert combine(classify_rules(["공급계약 체결"]), {"level": "caution", "summary": "소문성"}).level == "caution"
+
+
+def test_news_gate_in_strategy():
+    st = FlowStrategy(Params())
+    snap = make_snap()
+    assert st.decide(ctx(snap, news="block")).kind == "hold"
+    ok, caution = st.decide(ctx(snap)), st.decide(ctx(snap, news="caution"))
+    assert caution.frac == pytest.approx(ok.frac * 0.5)
+    pos = Position("A", 10, 70000.0, at(9, 30), peak=70000.0)
+    assert st.decide(ctx(snap, pos, news="block")).reason == "news_block"
+    # caution 이면 종가배팅/이월 금지
+    late = make_snap(ts=at(15, 10), score60=60.0)
+    assert st.decide(ctx(late, now=at(15, 10))).reason == "closing_bet"
+    assert st.decide(ctx(late, news="caution", now=at(15, 10))).kind == "hold"

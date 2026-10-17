@@ -24,6 +24,12 @@ DEFAULT_GRID: dict[str, list] = {
     "entry_score_1m": [28.0, 35.0, 42.0],
     "entry_score_10s": [18.0, 25.0, 32.0],
 }
+VOL_GRID: dict[str, list] = {  # 변동성이 큰 종목용(--vol)
+    "tp_pct": [0.013, 0.018, 0.024],
+    "sl_atr_mult": [2.0, 2.5, 3.0],
+    "min_atr1m": [0.0015, 0.0025, 0.0035],
+    "entry_score_1m": [28.0, 35.0, 42.0],
+}
 
 
 def _score(m: dict) -> float:
@@ -67,7 +73,11 @@ def tune(
     for _, combo, m_train in results[:5]:
         cand = replace(base, **combo)
         _, m_valid = run_replay(codes, valid, cand, initial_cash, data_dir)
-        if m_valid["trades"] >= min_valid_trades and m_valid["expectancy_pct"] > base_valid["expectancy_pct"] > -1:
+        if (
+            m_valid["trades"] >= min_valid_trades
+            and m_train["expectancy_pct"] > 0  # 학습 구간에서도 돈을 벌지 못하면 '덜 잃는 후보'일 뿐이다
+            and m_valid["expectancy_pct"] > max(0.0, base_valid["expectancy_pct"])
+        ):
             best = {"combo": combo, "train": m_train, "valid": m_valid}
             break
 

@@ -94,6 +94,7 @@ class FlowSnapshot:
     ask1: int
     bid1: int
     vwap: float
+    atr1m: float  # 최근 N개 1분봉의 평균 (고가-저가)/종가. 0 이면 표본 부족
     cvd: int  # 장 시작 후 누적 순매수 체결량
     ob_imb: float
     top_imb: float
@@ -122,6 +123,7 @@ class FlowSnapshot:
             "vwap_dev": round(self.vwap_dev, 4),
             "ret300": round(self.s300.ret, 4),
             "trades60": self.s60.n,
+            "atr1m": round(self.atr1m, 5),
         }
 
 
@@ -141,6 +143,8 @@ class FlowAnalyzer:
         self.sess_notional = 0.0
         self._hist: deque[float] = deque(maxlen=2000)
         self._n = 0
+        self._bar: list | None = None  # [분 키, 고가, 저가, 종가]
+        self._ranges: deque[float] = deque(maxlen=60)
         self.big_thr = float(params.big_trade_floor_krw)
 
     # --- 입력
@@ -153,6 +157,23 @@ class FlowAnalyzer:
         self.last_price = 0
         self.last_side = 0
         self.last_quote = None
+        self._bar = None
+        self._ranges.clear()
+
+    def _bar_update(self, ts: datetime, price: int) -> None:
+        key = ts.replace(second=0, microsecond=0)
+        b = self._bar
+        if b is None or b[0] != key:
+            if b is not None and b[3] > 0:
+                self._ranges.append((b[1] - b[2]) / b[3])
+            self._bar = [key, price, price, price]
+        else:
+            b[1], b[2], b[3] = max(b[1], price), min(b[2], price), price
+
+    def _atr1m(self) -> float:
+        n = self.p.atr_minutes
+        r = list(self._ranges)[-n:]
+        return sum(r) / len(r) if len(r) >= 5 else 0.0
 
     def on_quote(self, q: Quote) -> None:
         if self.day != q.ts.date():
@@ -191,6 +212,7 @@ class FlowAnalyzer:
         for w in self.win.values():
             w.add(t.ts, t.price, t.vol, side, big)
             w.trim(t.ts)
+        self._bar_update(t.ts, t.price)
         self.cvd += side * t.vol
         self.sess_vol += t.vol
         self.sess_notional += notional
@@ -256,6 +278,7 @@ class FlowAnalyzer:
             ask1=ask1,
             bid1=bid1,
             vwap=vwap,
+            atr1m=self._atr1m(),
             cvd=self.cvd,
             ob_imb=ob_imb,
             top_imb=top_imb,
