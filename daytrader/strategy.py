@@ -150,6 +150,8 @@ class FlowStrategy:
             return HOLD
         if p.news_gate and c.daily.news == "block":
             return HOLD
+        if p.regime_gate and c.daily.regime not in ("breakout", "expansion"):
+            return HOLD  # 국면을 모르거나(unknown) 돌파/확장 구간이 아니면 쉰다
         size_mult = 0.5 if (p.news_gate and c.daily.news == "caution") else 1.0
         st = self.stops(s)
         if st is None:

@@ -171,6 +171,22 @@ def cmd_news(a) -> int:
     return 0
 
 
+def cmd_regime(a) -> int:
+    from .regime import detect, load_daily_bars
+
+    if a.csv:
+        bars = load_daily_bars(a.csv)
+    else:
+        from .kis import KisRest
+
+        bars = KisRest(Settings.from_env()).daily_bars(a.code)
+    r = detect(bars)
+    print(f"[{r.state.upper()}] {r.note}")
+    print(f"  신호: {r.signals}")
+    print(f"  일봉 {len(bars)}개 ({bars[0].date} ~ {bars[-1].date})" if bars else "  일봉 없음")
+    return 0
+
+
 def cmd_tune(a) -> int:
     from .tune import DEFAULT_GRID, VOL_GRID, tune
 
@@ -244,6 +260,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--data", default="data")
     sp.add_argument("--offline", action="store_true", help="KIS 호출 없이 data/news/CODE.txt 만 사용")
     sp.add_argument("--no-ai", action="store_true")
+    sp = add("regime", cmd_regime, "일봉 국면 감지(횡보 후 거래대금 폭발 돌파)")
+    sp.add_argument("code")
+    sp.add_argument("--csv", default="", help="date,open,high,low,close,value CSV (없으면 KIS 에서 조회)")
     sp = add("tune", cmd_tune, "워크포워드 튜닝(제안만 생성)")
     sp.add_argument("--vol", action="store_true", help="변동성 큰 종목용 탐색 격자")
     sp.add_argument("codes", nargs="+")

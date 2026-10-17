@@ -103,6 +103,9 @@ class Params:
     dip_add_step_pct: float = 0.006  # 추가매수(하방형): 직전 매수가 대비 이만큼 더 눌렸을 때
     dip_allow_deeper_add: bool = True
 
+    # --- 일봉 국면 게이트(횡보 후 거래대금 폭발 돌파 구간만 매매). 검증 전이라 기본 꺼짐
+    regime_gate: bool = False
+
     # --- 뉴스 게이트
     news_gate: bool = True
 
@@ -170,6 +173,7 @@ LOCKED = {
     "sl_max_pct",
     "vol_adaptive",
     "news_gate",
+    "regime_gate",
     "dip_enabled",
     "dip_break_buffer",
     "dip_t1",

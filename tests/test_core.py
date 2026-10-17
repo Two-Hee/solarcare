@@ -426,3 +426,95 @@ def test_engine_merges_tranches_into_one_position_and_one_trade_record():
     eng._sell(cs, at(10, 5), cs.analyzer.snapshot(at(10, 5)), 1.0, "take_profit")
     [rec] = eng.trades
     assert rec["qty"] == qty_total and rec["mode"] == "dip" and rec["tranches"] == 2 and rec["fees"] > 0
+
+
+# ---------------------------------------------------------------- 일봉 국면(횡보 후 거래대금 폭발 돌파)
+from datetime import date as _date  # noqa: E402
+
+from daytrader.regime import DailyBar, detect  # noqa: E402
+from daytrader.replay import make_daily_provider  # noqa: E402
+
+
+def make_bars(n_base=30, after=()):
+    """9,925~10,400 횡보(거래대금 15억/일) -> 돌파일(+7.5%, 거래대금 20배) -> after: (일중변동폭, 종가등락) 리스트."""
+    bars, d = [], _date(2026, 8, 17)
+
+    def nxt():
+        nonlocal d
+        d = d + __import__("datetime").timedelta(days=1)
+        while d.weekday() >= 5:
+            d = d + __import__("datetime").timedelta(days=1)
+        return d.strftime("%Y%m%d")
+
+    px = 10100.0
+    for i in range(n_base):
+        px = 10100 + (150 if i % 2 else -150)
+        bars.append(DailyBar(nxt(), px, px + 120, px - 120, px, 1.5e9))
+    base_close = px
+    ev_close = base_close * 1.075
+    bars.append(DailyBar(nxt(), base_close, ev_close * 1.01, base_close * 0.995, ev_close, 3.0e10))
+    c = ev_close
+    for rng, chg in after:
+        c = c * (1 + chg)
+        bars.append(DailyBar(nxt(), c / (1 + chg), c * (1 + rng / 2), c * (1 - rng / 2), c, 1.2e10))
+    return bars
+
+
+def test_regime_needs_enough_bars_and_detects_base():
+    assert detect(make_bars(n_base=10)[:10]).state == "unknown"
+    assert detect(make_bars()[:-1]).state == "base"  # 돌파 직전: 횡보 중 -> 후보
+
+
+def test_regime_breakout_day_then_expansion_then_fading():
+    r = detect(make_bars())
+    assert r.state == "breakout" and r.signals["value_ratio"] >= 15 and r.signals["event_ret"] == pytest.approx(0.075, abs=0.002)
+    ex = detect(make_bars(after=[(0.05, 0.03), (0.045, 0.02), (0.05, -0.01)]))
+    assert ex.state == "expansion" and ex.signals["days_since"] == 3
+    quiet = detect(make_bars(after=[(0.05, 0.02)] + [(0.01, 0.0)] * 6))
+    assert quiet.state == "fading"  # 변동폭이 줄면 단타 대상에서 제외
+    assert detect(make_bars(after=[(0.05, 0.02)] * 14)).state == "fading"  # 돌파 14일째: 확장 구간(10일)은 지남
+    assert detect(make_bars(after=[(0.05, 0.02)] * 20)).state == "none"  # 돌파가 탐색 범위(15일) 밖
+    assert detect(make_bars(n_base=30, after=[(0.04, 0.0)])).signals["days_since"] == 1
+
+
+def test_no_event_when_volume_or_price_lacking():
+    bars = make_bars()
+    ev = bars[-1]
+    weak_vol = bars[:-1] + [DailyBar(ev.date, ev.open, ev.high, ev.low, ev.close, 2.0e9)]
+    assert detect(weak_vol).state in ("base", "none")  # 거래대금 배수 부족
+    flat = bars[:-1] + [DailyBar(ev.date, ev.open, ev.high, ev.low, ev.open * 1.01, 3.0e10)]
+    assert detect(flat).state in ("base", "none")  # 상승률/고점 돌파 부족
+
+
+def test_regime_gate_blocks_entries_unless_breakout_or_expansion():
+    snap = make_snap()
+    off = FlowStrategy(Params())
+    on = FlowStrategy(Params(regime_gate=True))
+    assert off.decide(ctx(snap)).kind == "buy"
+    for state in ("unknown", "none", "base", "fading"):
+        c = ctx(snap)
+        c.daily.regime = state
+        assert on.decide(c).kind == "hold", state
+    for state in ("breakout", "expansion"):
+        c = ctx(snap)
+        c.daily.regime = state
+        assert on.decide(c).kind == "buy", state
+
+
+def test_replay_regime_provider_has_no_lookahead(tmp_path):
+    import csv
+
+    (tmp_path / "daily_bars").mkdir()
+    bars = make_bars()
+    with (tmp_path / "daily_bars" / "161000.csv").open("w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["date", "open", "high", "low", "close", "value"])
+        for b in bars:
+            w.writerow([b.date, b.open, b.high, b.low, b.close, b.value])
+    prov = make_daily_provider(tmp_path)
+    ev = bars[-1].date
+    d_event = _date(int(ev[:4]), int(ev[4:6]), int(ev[6:]))
+    assert prov("161000", d_event).regime == "base"  # 돌파일 당일 아침엔 아직 돌파를 모른다
+    nxt = d_event + __import__("datetime").timedelta(days=1)
+    assert prov("161000", nxt).regime == "breakout"  # 다음 거래일 아침에 비로소 인지
+    assert prov("999999", nxt).regime == "unknown"

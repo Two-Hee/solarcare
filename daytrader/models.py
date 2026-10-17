@@ -79,6 +79,8 @@ class DailyContext:
     inst_net_5d: int | None = None
     news: str = "ok"  # ok | caution | block  (뉴스 게이트)
     news_note: str = ""
+    regime: str = "unknown"  # 일봉 국면(regime.py)
+    regime_note: str = ""
 
     @property
     def investor_ok(self) -> bool | None:

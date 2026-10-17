@@ -28,18 +28,27 @@ def load_daily_context(path: str | Path) -> dict[str, dict[str, tuple[int, int]]
 
 def make_daily_provider(data_dir: str | Path):
     cache: dict[str, dict[str, tuple[int, int]]] = {}
+    bars_cache: dict[str, list] = {}
 
     def provider(code: str, d: date) -> DailyContext:
+        from dataclasses import replace
+
+        from .regime import detect, load_daily_bars
+
         if code not in cache:
             cache[code] = load_daily_context(Path(data_dir) / "daily" / f"{code}.csv")
+            bars_cache[code] = load_daily_bars(Path(data_dir) / "daily_bars" / f"{code}.csv")
+        ds = d.strftime("%Y%m%d")
+        ctx = DailyContext()
         rows = cache[code]
-        if not rows:
-            return DailyContext()
-        prev = sorted(k for k in rows if k < d.strftime("%Y%m%d"))[-5:]
-        if not prev:
-            return DailyContext()
-        f1, i1 = rows[prev[-1]]
-        return DailyContext(f1, i1, sum(rows[k][0] for k in prev), sum(rows[k][1] for k in prev))
+        prev = sorted(k for k in rows if k < ds)[-5:]
+        if prev:
+            f1, i1 = rows[prev[-1]]
+            ctx = DailyContext(f1, i1, sum(rows[k][0] for k in prev), sum(rows[k][1] for k in prev))
+        if bars_cache[code]:  # 당일 이후 데이터는 보지 않는다(룩어헤드 방지)
+            r = detect([b for b in bars_cache[code] if b.date < ds])
+            ctx = replace(ctx, regime=r.state, regime_note=r.note)
+        return ctx
 
     return provider
 

@@ -75,8 +75,18 @@ async def run_live(
             except Exception as e:  # 수급 일봉이 안 와도 매매 자체는 가능
                 log.warning("투자자 일별 수급 조회 실패(%s): %s", code, e)
                 ctx = DailyContext()
-            cache[code] = replace(ctx, **news_fields(code))
-            log.info("뉴스 게이트 %s: %s %s", code, cache[code].news, cache[code].news_note)
+            reg = {}
+            if params.regime_gate:
+                try:
+                    from .regime import detect
+
+                    r = detect(rest.daily_bars(code))
+                    reg = {"regime": r.state, "regime_note": r.note}
+                except Exception as e:  # 일봉 조회 실패 -> unknown (게이트가 켜져 있으면 쉰다)
+                    log.warning("일봉 국면 조회 실패(%s): %s", code, e)
+            cache[code] = replace(ctx, **news_fields(code), **reg)
+            log.info("뉴스 게이트 %s: %s %s | 국면: %s %s", code, cache[code].news, cache[code].news_note,
+                     cache[code].regime, cache[code].regime_note)
         return cache[code]
 
     engine = TradingEngine(codes, params, broker, daily_provider, sink, state_path)

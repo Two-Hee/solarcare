@@ -139,6 +139,31 @@ class KisRest:
             sum(num(r, "frgn_ntby_qty") for r in rows), sum(num(r, "orgn_ntby_qty") for r in rows),
         )
 
+    def daily_bars(self, code: str, days: int = 150):
+        """최근 일봉(거래대금 포함). 오늘 진행 중인 봉은 제외한다."""
+        from datetime import timedelta
+
+        from .regime import DailyBar
+
+        end = datetime.now()
+        j = self._call(
+            "GET", "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice", "FHKST03010100",
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code,
+                "FID_INPUT_DATE_1": (end - timedelta(days=days)).strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": end.strftime("%Y%m%d"), "FID_PERIOD_DIV_CODE": "D", "FID_ORG_ADJ_PRC": "0",
+            },
+        )
+        today = end.strftime("%Y%m%d")
+        bars = []
+        for r in j.get("output2", []):
+            d = r.get("stck_bsop_date", "")
+            if not d or d >= today or not r.get("stck_clpr"):
+                continue
+            bars.append(DailyBar(d, float(r["stck_oprc"]), float(r["stck_hgpr"]), float(r["stck_lwpr"]),
+                                 float(r["stck_clpr"]), float(r.get("acml_tr_pbmn") or 0)))
+        return sorted(bars, key=lambda b: b.date)
+
     def news_titles(self, code: str) -> list[tuple[str, str]]:
         """종합 시황/공시 제목. [(YYYYMMDD, 제목)]. 모의서버에서 미지원일 수 있다."""
         j = self._call(
