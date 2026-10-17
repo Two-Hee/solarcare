@@ -37,7 +37,7 @@ def make_daily_provider(data_dir: str | Path, params: Params | None = None):
     def provider(code: str, d: date) -> DailyContext:
         from dataclasses import replace
 
-        from .regime import detect, load_daily_bars
+        from .regime import detect_with, load_daily_bars
 
         if code not in cache:
             cache[code] = load_daily_context(Path(data_dir) / "daily" / f"{code}.csv")
@@ -51,7 +51,7 @@ def make_daily_provider(data_dir: str | Path, params: Params | None = None):
             f1, i1 = rows[prev[-1]]
             ctx = DailyContext(f1, i1, sum(rows[k][0] for k in prev), sum(rows[k][1] for k in prev))
         if bars_cache[code]:  # 당일 이후 데이터는 보지 않는다(룩어헤드 방지)
-            r = detect([b for b in bars_cache[code] if b.date < ds])
+            r = detect_with([b for b in bars_cache[code] if b.date < ds], params)
             ctx = replace(ctx, regime=r.state, regime_note=r.note)
         if fin_cache[code]:  # 공시 시차(분기 종료 후 50일)를 지킨 재무 게이트. 종목 상태 플래그는 과거 값이 없어 제외
             g = assess_fin(fin_as_of(fin_cache[code], d), None, params)

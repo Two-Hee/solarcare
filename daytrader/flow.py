@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 
 from .config import Params
 from .costs import tick_size
+from .bands import BandSnap, IntradayBand
 from .levels import LevelTracker, Levels
 from .models import Quote, Tick
 
@@ -111,6 +112,7 @@ class FlowSnapshot:
     lo_ts: datetime | None = None  # 그 저가가 찍힌 시각
     hl2: int = 0  # 마지막 완성된 1분봉 2개의 저가 중 낮은 값(저점이 높아지는지 확인용)
     lv: "Levels | None" = None  # 수급 기반 동적 지지·저항 (use_levels 일 때만)
+    band: "BandSnap | None" = None  # 이평선 밭 상태 (entry_mode != flow 일 때만)
 
     @property
     def vwap_dev(self) -> float:
@@ -152,6 +154,7 @@ class FlowAnalyzer:
         self._hist: deque[float] = deque(maxlen=2000)
         self._n = 0
         self.levels = LevelTracker(params) if params.use_levels else None
+        self.band = IntradayBand.from_params(params) if params.entry_mode != "flow" else None
         self._bar: list | None = None  # [분 키, 고가, 저가, 종가, 저가 시각]
         self._bars: deque[tuple] = deque(maxlen=60)  # 완성된 1분봉
         self._ranges: deque[float] = deque(maxlen=60)
@@ -244,6 +247,8 @@ class FlowAnalyzer:
         self._bar_update(t.ts, t.price)
         if self.levels is not None:
             self.levels.add_tick(t.ts, t.price, t.vol, side)
+        if self.band is not None:
+            self.band.on_price(t.ts, t.price)
         self.cvd += side * t.vol
         self.sess_vol += t.vol
         self.sess_notional += notional
@@ -316,6 +321,7 @@ class FlowAnalyzer:
             lo_ts=lo_ts,
             hl2=hl2,
             lv=self.levels.snapshot(self.last_price, now) if self.levels is not None and self.last_price else None,
+            band=self.band.snap() if self.band is not None else None,
             cvd=self.cvd,
             ob_imb=ob_imb,
             top_imb=top_imb,

@@ -306,7 +306,9 @@ def cmd_regime(a) -> int:
         from .kis import KisRest
 
         bars = KisRest(Settings.from_env()).daily_bars(a.code)
-    r = detect(bars)
+    from .regime import detect_with
+
+    r = detect_with(bars, Params.load(a.params))
     print(f"[{r.state.upper()}] {r.note}")
     print(f"  신호: {r.signals}")
     print(f"  일봉 {len(bars)}개 ({bars[0].date} ~ {bars[-1].date})" if bars else "  일봉 없음")

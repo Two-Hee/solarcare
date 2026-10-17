@@ -17,7 +17,7 @@ import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 
-TRADABLE = ("breakout", "expansion")
+TRADABLE = ("breakout", "expansion", "bandstart")
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,29 @@ def _mean(xs: list[float]) -> float:
     return sum(xs) / len(xs) if xs else 0.0
 
 
-def detect(
+def detect_with(bars: list[DailyBar], p) -> Regime:
+    """Params 의 임계값으로 국면 판정(일봉 밭 시작 포함)."""
+    return detect(bars, band_fast=p.band_daily_fast, band_slow=p.band_daily_slow,
+                  band_min_width=p.band_daily_min_width, band_recent=p.band_daily_recent,
+                  band_confirm_bars=p.band_daily_confirm_bars)
+
+
+def detect(bars: list[DailyBar], band_fast: int = 10, band_slow: int = 20, band_min_width: float = 0.01,
+           band_recent: int = 5, band_confirm_bars: int = 8, **kw) -> Regime:
+    r = _detect_events(bars, **kw)
+    if r.state in ("none", "base", "fading") and len(bars) > band_slow:
+        from .bands import BandTracker
+
+        tr = BandTracker(band_fast, band_slow, band_min_width, confirm_bars=band_confirm_bars, slow_tol=0.005, fresh_bars=band_recent)
+        for b in bars:
+            tr.on_bar(b.date, b.close)
+        if tr.fresh:
+            sig = {**r.signals, "band_start": tr.start_ts, "band_days": tr.bars_since_start, "band_width": round(tr.width, 4)}
+            return Regime("bandstart", f"일봉 {band_fast}/{band_slow} 이평 밭 시작({tr.start_ts}) 후 {tr.bars_since_start}일째, 간격 {tr.width * 100:.1f}%", sig)
+    return r
+
+
+def _detect_events(
     bars: list[DailyBar],
     burst_mult: float = 3.0,
     burst_ret: float = 0.04,

@@ -46,6 +46,7 @@ class DecisionCtx:
     entries_allowed: bool
     overnight_room: bool
     closebet_done: bool
+    last_exit_ts: datetime | None = None
 
 
 class FlowStrategy:
@@ -103,6 +104,9 @@ class FlowStrategy:
             return Action("sell", reason="stop_loss")
         if pnl >= tp:
             return Action("sell", reason="take_profit")
+        if (p.band_exit and pos.mode == "band" and s.band is not None and s.band.ready
+                and s.band.state == "none" and held >= p.min_hold_sec):
+            return Action("sell", reason="band_break")  # 진입 근거였던 밭이 사라졌다
         if pos.peak / pos.avg_price - 1 >= p.breakeven_trigger_pct and pnl <= p.breakeven_lock_pct:
             return Action("sell", reason="breakeven_stop")
 
@@ -128,7 +132,8 @@ class FlowStrategy:
                 return Action("sell", frac=1.0 - keep, reason="overnight_trim", overnight=True)
 
         dip_underwater = pos.mode == "dip" and pnl <= 0  # 저점매수는 매도세 속에서 샀으므로 손실 구간 수급반전은 무시(저점 이탈이 대신 지킨다)
-        if held >= p.min_hold_sec and s.score60 <= p.exit_score_1m and s.score10 <= 0 and not dip_underwater:
+        band_pure = pos.mode == "band" and p.entry_mode == "band" and p.band_exit  # 밭 하나를 기준으로 삼은 포지션은 밭 소멸/익절/손절로만 정리
+        if held >= p.min_hold_sec and s.score60 <= p.exit_score_1m and s.score10 <= 0 and not dip_underwater and not band_pure:
             return Action("sell", reason="flow_reversal")
         if not pos.overnight and held >= p.max_hold_min * 60:
             return Action("sell", reason="time_stop")
@@ -154,7 +159,7 @@ class FlowStrategy:
             return HOLD
         if p.fin_gate and c.daily.fin == "block":
             return HOLD  # 자본잠식·거래정지·관리/경고/단기과열 종목은 신규 진입 금지
-        if p.regime_gate and c.daily.regime not in ("breakout", "expansion"):
+        if p.regime_gate and c.daily.regime not in ("breakout", "expansion", "bandstart"):
             return HOLD  # 국면을 모르거나(unknown) 돌파/확장 구간이 아니면 쉰다
         size_mult = 0.5 if (p.news_gate and c.daily.news == "caution") else 1.0
         st = self.stops(s)
@@ -200,11 +205,19 @@ class FlowStrategy:
             return HOLD
         if s.spread_ticks > p.max_spread_ticks:
             return HOLD
-        if self._flow_ok(s):
+        flow_ok = self._flow_ok(s)
+        band_ok = p.entry_mode != "flow" and self._band_ok(c)
+        mode = p.entry_mode
+        go = {"flow": flow_ok, "band": band_ok, "either": flow_ok or band_ok, "both": flow_ok and band_ok}.get(mode, flow_ok)
+        if go:
             if not self._room_ok(s, tp):
                 return HOLD  # 가까운 강한 저항 때문에 익절폭만큼 올라갈 자리가 없다
+            if band_ok and mode != "flow":
+                return Action("buy", frac=size(p.position_frac, sl), reason="band_start" if not flow_ok else "band_start+flow",
+                              tp_pct=tp, sl_pct=sl, mode="band")
             return Action("buy", frac=size(p.position_frac, sl), reason="flow_long", tp_pct=tp, sl_pct=sl)
-        if p.dip_enabled and self._dip_ok(c) and self._room_ok(s, tp):
+        # 'band'/'both' 는 밭 시작 하나를 기준으로 삼는 모드라 저점매수 경로를 열지 않는다(기준을 섞지 않기 위해)
+        if p.dip_enabled and mode in ("flow", "either") and self._dip_ok(c) and self._room_ok(s, tp):
             sup_ok, sup_px = self._dip_support(s)
             if sup_ok:
                 full = size(p.position_frac, sl)
@@ -214,6 +227,19 @@ class FlowStrategy:
                     full_frac=full, invalid_px=base * (1 - p.dip_break_buffer),
                 )
         return HOLD
+
+    # ------------------------------------------------------------------ 이평선 밭 시작 (entry_mode != flow)
+    def _band_ok(self, c: DecisionCtx) -> bool:
+        """밭이 막 확정된 구간(fresh)이고, 아직 slow 이평 근처이며, 이 밭에서 이미 한 번 거래하지 않았을 때."""
+        p, s = self.p, c.snap
+        b = s.band
+        if b is None or not b.ready or b.state != "active" or not b.fresh or b.slow <= 0:
+            return False
+        if s.price < b.slow or s.price / b.slow - 1 > p.band_max_ext:
+            return False  # slow 아래이거나 이미 많이 올라 늦음
+        if c.last_exit_ts is not None and b.start_ts is not None and c.last_exit_ts >= b.start_ts:
+            return False  # 이 밭에서는 이미 진입/청산했다
+        return s.s60.n >= p.min_trades_1m  # 유동성
 
     # ------------------------------------------------------------------ 수급 기반 동적 지지·저항 (use_levels)
     def _room_ok(self, s: FlowSnapshot, tp: float) -> bool:

@@ -428,3 +428,41 @@ def level_drift(lvs: dict[str, list], minutes: int = 30) -> dict:
                 res.append(abs(b.price / a.price - 1))
     med = lambda xs: statistics.median(xs) if xs else 0.0  # noqa: E731
     return {"support_median": med(sup), "resistance_median": med(res), "n": len(sup) + len(res)}
+
+
+# ---------------------------------------------------------------- 이평선 '밭' 시작 기준 검증
+def band_signals_by_day(days: dict[str, list[Bar]], p: Params) -> dict[str, list[int]]:
+    """밭 시작이 '확정된 것을 아는' 첫 1분봉에서 신호. 실시간과 같은 IntradayBand 를 쓴다(날짜가 바뀌어도 이어서 계산).
+    N분봉은 다음 봉의 첫 가격이 들어올 때 완성되므로 룩어헤드가 없고, 진입은 그 1분봉의 종가로 본다(보수적)."""
+    from .bands import IntradayBand
+
+    ib = IntradayBand.from_params(p)
+    out: dict[str, list[int]] = {}
+    for d in sorted(days):
+        reg = regular(days[d])
+        idx: list[int] = []
+        for i, b in enumerate(reg):
+            ev = ib.on_price(b.ts + timedelta(seconds=30), b.close)
+            slow = ib.tracker.slow
+            if ev == "start" and _entry_ok(b, p) and slow > 0 and slow <= b.close <= slow * (1 + p.band_max_ext):
+                idx.append(i)
+        out[d] = idx
+    return out
+
+
+BAND_DEFS = [  # (분봉, fast, slow): '노란 밭'이 어느 두 선인지 확정되기 전에 몇 가지 정의를 나란히 본다
+    (1, 5, 20), (3, 5, 20), (5, 5, 20), (5, 10, 20), (5, 20, 60),
+]
+
+
+def band_study(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
+    from dataclasses import replace
+
+    rows = []
+    cfgs = [("현재 설정", p)] + [(f"{tf}분봉 {f}/{s}", replace(p, band_tf_min=tf, band_fast=f, band_slow=s)) for tf, f, s in BAND_DEFS
+                               if (tf, f, s) != (p.band_tf_min, p.band_fast, p.band_slow)]
+    for label, pp in cfgs:
+        sig = band_signals_by_day(days, pp)
+        st = event_study(days, lambda reg, d, sig=sig: sig.get(d, []), r)
+        rows.append({"label": label, "tf": pp.band_tf_min, "fast": pp.band_fast, "slow": pp.band_slow, **st})
+    return {"rows": rows}

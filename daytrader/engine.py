@@ -36,6 +36,7 @@ class CodeState:
     last_eval: datetime | None = None
     daily: DailyContext | None = None
     closebet_date: date | None = None
+    last_exit_ts: datetime | None = None
     p: Params | None = None  # 종목별 파라미터(없으면 공통)
     strategy: FlowStrategy | None = None
 
@@ -151,6 +152,7 @@ class TradingEngine:
             entries_allowed=self.risk.entries_allowed(),
             overnight_room=self.risk.overnight_room(eq, self.overnight_exposure()),
             closebet_done=cs.closebet_date == now.date(),
+            last_exit_ts=cs.last_exit_ts,
         )
         act = cs.strategy.decide(ctx)
         if act.kind == "buy":
@@ -258,6 +260,7 @@ class TradingEngine:
         pos.qty -= qty
         if pos.qty <= 0:
             cs.position = None
+            cs.last_exit_ts = now
             cs.cooldown_until = now + timedelta(seconds=cs.p.cooldown_sec)
         elif mark_overnight:
             pos.overnight = True

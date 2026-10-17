@@ -119,6 +119,23 @@ class Params:
     # --- 일봉 국면 게이트(횡보 후 거래대금 폭발 돌파 구간만 매매). 검증 전이라 기본 꺼짐
     regime_gate: bool = False
 
+    # --- 이평선 '밭' 시작 기준(bands.py). entry_mode 가 flow 가 아니면 사용
+    entry_mode: str = "flow"  # flow(수급 점수) | band(밭 시작) | either(둘 중 하나) | both(둘 다)
+    band_tf_min: int = 5  # 분봉 단위
+    band_fast: int = 5
+    band_slow: int = 20
+    band_min_width: float = 0.001  # 확정에 필요한 (fast-slow)/slow
+    band_confirm_bars: int = 5  # 돌파 후 이 봉 수 안에 간격이 min_width 에 닿아야 확정(완만한 상승은 오래 걸린다)
+    band_slow_tol: float = 0.002  # slow 이평이 한 봉에 이만큼 넘게 꺾이면 확정 안 함
+    band_fresh_bars: int = 2  # 확정 후 이 봉 수 이내만 '시작 지점'으로 본다
+    band_max_ext: float = 0.015  # 현재가가 slow 이평보다 이 이상 위면 이미 늦음
+    band_exit: bool = True  # 밭 기준 진입 포지션은 밭이 사라지면(fast<=slow) 청산
+    band_daily_fast: int = 10  # 일봉 밭(종목 선정/국면용)
+    band_daily_slow: int = 20
+    band_daily_min_width: float = 0.01
+    band_daily_confirm_bars: int = 8  # 하루 +1.2% 상승에서 간격 1% 까지 6일 걸림
+    band_daily_recent: int = 5  # 확정 후 이 일수 이내면 bandstart 국면
+
     # --- 재무·종목 상태 게이트 (fin.py). 데이터가 없으면 통과
     fin_gate: bool = True
     fin_debt_caution: float = 200.0  # 부채비율(%) 이상이면 caution
@@ -188,6 +205,9 @@ PARAM_BOUNDS: dict[str, tuple[float, float]] = {
     "min_atr1m": (0.0005, 0.005),
     "sl_atr_mult": (1.5, 4.0),
     "tp_atr_mult": (0.0, 6.0),
+    "band_min_width": (0.0005, 0.01),
+    "band_fresh_bars": (1, 4),
+    "band_max_ext": (0.005, 0.03),
     "dip_min_drop_pct": (0.008, 0.04),
     "dip_atr_mult": (2.0, 6.0),
     "dip_bounce_pct": (0.0005, 0.006),
@@ -212,6 +232,18 @@ LOCKED = {
     "sl_max_pct",
     "vol_adaptive",
     "news_gate",
+    "entry_mode",
+    "band_tf_min",
+    "band_fast",
+    "band_slow",
+    "band_confirm_bars",
+    "band_slow_tol",
+    "band_exit",
+    "band_daily_fast",
+    "band_daily_slow",
+    "band_daily_min_width",
+    "band_daily_confirm_bars",
+    "band_daily_recent",
     "fin_gate",
     "fin_debt_caution",
     "fin_loss_quarters_caution",

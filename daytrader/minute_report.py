@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .analysis import (
-    Rules, base_rate, day_stats, dip_signals, event_study, gate_pass, level_drift, levels_by_day,
+    Rules, band_study, base_rate, day_stats, dip_signals, event_study, gate_pass, level_drift, levels_by_day,
     range_percentiles, regular, room_split, summarize_trades, support_touch_signals, swing_summary,
     vol_profile, volume_spike_signals, volume_spike_table,
 )
@@ -42,6 +42,7 @@ def analyze(days: dict[str, list[Bar]], p: Params, r: Rules) -> dict:
         "levels": lvs,
         "room": room_split(days, lvs, r, p),
         "drift": level_drift(lvs),
+        "band": band_study(days, p, r),
     }
 
 
@@ -128,6 +129,20 @@ def render(code: str, res: dict, p: Params, r: Rules, n_bars: int) -> str:
         ["저항 코앞(진입 차단)", rm["n_blocked"], pc0(b["tp"], 0) if b else "-", pc0(b["stop"], 0) if b else "-", pct(b["avg_net"], 3) if b else "-"],
     ])
     L += ["차단 구간의 익절 비율이 허용 구간보다 **뚜렷이 낮을 때만** 이 필터가 의미 있습니다. 표본이 작으면 켜지 마세요.", ""]
+    L += ["## 9. 이평선 '밭'(두 이평 사이 색칠 영역) 시작 기준", "",
+          f"정의: fast 이평이 slow 이평을 상향 돌파한 뒤 간격 ≥ {p.band_min_width * 100:.2f}% 가 확인되면 '시작'(확정). "
+          f"확정 후 {p.band_fresh_bars}개 봉 이내, 현재가가 slow 위 {p.band_max_ext * 100:.1f}% 이내일 때만 진입. 첫 신호 1분봉 종가 진입으로 계산(보수적).", ""]
+    rows9 = []
+    for x in res["band"]["rows"]:
+        sm = x["summary"]
+        if not sm:
+            rows9.append([x["label"], 0, "-", "-", "-", "-", "-"])
+            continue
+        rows9.append([x["label"], x["n"], pct(x["fwd"][15], 3), pct(x["fwd"][30], 3), f"{pc0(sm['tp'], 0)} / {pc0(sm['stop'], 0)}",
+                      pct(sm["avg_net"], 3), pct(sm["avg_net"] - base_net, 3)])
+    L += _table(["정의", "신호", "+15분", "+30분", "익절/손절 먼저", "평균 순손익", "기준선 대비"], rows9)
+    L += ["⚠️ 여러 정의를 나란히 본 것이라 **그중 가장 좋아 보이는 정의를 고르면 과최적화**입니다(다중 비교). 정의는 사용자가 차트에서 보는 '노란 밭'의 두 선·시간봉으로 "
+          "먼저 정하고, 이 표는 그 정의가 기준선보다 나은지만 확인하는 데 쓰세요. 표본 30회 미만은 해석하지 마세요.", ""]
     L += ["---", "봉 데이터에는 체결 방향이 없어 '압력'은 종가 위치 기반 추정입니다(틱 기록으로 만든 봉은 실제 매수/매도 체결량 사용)."]
     return "\n".join(L)
 

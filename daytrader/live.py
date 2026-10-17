@@ -91,9 +91,9 @@ async def run_live(
             reg = {}
             if params.regime_gate:
                 try:
-                    from .regime import detect
+                    from .regime import detect_with
 
-                    r = detect(rest.daily_bars(code))
+                    r = detect_with(rest.daily_bars(code), params)
                     reg = {"regime": r.state, "regime_note": r.note}
                 except Exception as e:  # 일봉 조회 실패 -> unknown (게이트가 켜져 있으면 쉰다)
                     log.warning("일봉 국면 조회 실패(%s): %s", code, e)
