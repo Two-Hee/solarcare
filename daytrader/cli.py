@@ -171,6 +171,73 @@ def cmd_news(a) -> int:
     return 0
 
 
+def cmd_bars_fetch(a) -> int:
+    from datetime import datetime, timedelta
+
+    from .bars import minute_path, save_bars
+    from .kis import KisRest
+
+    rest = KisRest(Settings.from_env())
+    d, end = datetime.strptime(a.start, "%Y%m%d"), datetime.strptime(a.end, "%Y%m%d")
+    got = 0
+    while d <= end:
+        day = d.strftime("%Y%m%d")
+        if d.weekday() < 5:
+            bars = rest.minute_bars(a.code, day, a.session)
+            if bars:
+                save_bars(minute_path(Settings.from_env().data_dir, a.code, day), bars)
+                got += 1
+                print(f"{day}: 1분봉 {len(bars)}개 ({bars[0].ts:%H:%M}~{bars[-1].ts:%H:%M})")
+            else:
+                print(f"{day}: 데이터 없음(휴장일이거나 미지원)")
+        d += timedelta(days=1)
+    print(f"{got}일 저장 -> data/minute/{a.code}/")
+    return 0 if got else 1
+
+
+def cmd_bars_import(a) -> int:
+    from .bars import import_csv, save_by_day
+
+    bars = import_csv(a.file)
+    days = save_by_day(a.data, a.code, bars)
+    print(f"{len(bars)}개 봉 -> {len(days)}일 ({days[0]} ~ {days[-1]}) 저장: {a.data}/minute/{a.code}/")
+    return 0
+
+
+def cmd_bars_build(a) -> int:
+    from .bars import save_by_day, ticks_to_bars
+    from .recorder import list_days, load_day
+
+    days = list_days(a.data, [a.code])
+    if not days:
+        print(f"{a.data}/ticks 에 {a.code} 기록이 없습니다. record 를 먼저 실행하세요.")
+        return 1
+    n = 0
+    for d in days:
+        bars = ticks_to_bars(load_day(a.data, d, [a.code]))
+        save_by_day(a.data, a.code, bars)
+        n += len(bars)
+    print(f"틱 {len(days)}일 -> 1분봉 {n}개 (매수/매도 체결량 포함) 저장")
+    return 0
+
+
+def cmd_analyze(a) -> int:
+    from .analysis import Rules
+    from .bars import load_days
+    from .minute_report import run
+
+    days = load_days(a.data, a.code, a.since, a.until, a.last)
+    if not days:
+        print(f"{a.data}/minute/{a.code} 에 1분봉이 없습니다. bars-fetch / bars-import / bars-build 중 하나로 먼저 만드세요.")
+        return 1
+    p = Params.load(a.params)
+    r = Rules(tp=a.tp, sl=a.sl, max_hold_min=a.hold, slip_ticks=a.slip, fee=p.fee_rate, tax=p.sell_tax)
+    md, path = run(a.code, days, p, r)
+    print(md)
+    print(f"\n리포트 저장: {path}")
+    return 0
+
+
 def cmd_regime(a) -> int:
     from .regime import detect, load_daily_bars
 
@@ -260,6 +327,28 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--data", default="data")
     sp.add_argument("--offline", action="store_true", help="KIS 호출 없이 data/news/CODE.txt 만 사용")
     sp.add_argument("--no-ai", action="store_true")
+    sp = add("bars-fetch", cmd_bars_fetch, "KIS 에서 과거 1분봉 내려받기")
+    sp.add_argument("code")
+    sp.add_argument("start", help="YYYYMMDD")
+    sp.add_argument("end", help="YYYYMMDD")
+    sp.add_argument("--session", choices=["regular", "all"], default="regular", help="all=08:00~20:00(통합)")
+    sp = add("bars-import", cmd_bars_import, "HTS 에서 내려받은 1분봉 CSV 가져오기(한글 헤더 허용)")
+    sp.add_argument("code")
+    sp.add_argument("file")
+    sp.add_argument("--data", default="data")
+    sp = add("bars-build", cmd_bars_build, "record 로 기록한 틱 -> 1분봉(매수/매도 체결량 포함)")
+    sp.add_argument("code")
+    sp.add_argument("--data", default="data")
+    sp = add("analyze", cmd_analyze, "1분봉 정밀 분석 리포트")
+    sp.add_argument("code")
+    sp.add_argument("--data", default="data")
+    sp.add_argument("--since", default="")
+    sp.add_argument("--until", default="")
+    sp.add_argument("--last", type=int, default=0, help="최근 N거래일만")
+    sp.add_argument("--tp", type=float, default=0.013)
+    sp.add_argument("--sl", type=float, default=0.010)
+    sp.add_argument("--hold", type=int, default=45, help="최대 보유(분)")
+    sp.add_argument("--slip", type=int, default=1, help="슬리피지(틱)")
     sp = add("regime", cmd_regime, "일봉 국면 감지(횡보 후 거래대금 폭발 돌파)")
     sp.add_argument("code")
     sp.add_argument("--csv", default="", help="date,open,high,low,close,value CSV (없으면 KIS 에서 조회)")

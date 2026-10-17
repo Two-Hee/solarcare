@@ -164,6 +164,41 @@ class KisRest:
                                  float(r["stck_clpr"]), float(r.get("acml_tr_pbmn") or 0)))
         return sorted(bars, key=lambda b: b.date)
 
+    def minute_bars(self, code: str, day: str, session: str = "regular"):
+        """특정 일자의 1분봉. 뒤(마감)에서 앞으로 페이지를 넘기며 모은다. 모의서버에서 미지원일 수 있다."""
+        from .bars import Bar
+
+        hour = "153000" if session == "regular" else "200000"
+        floor = "090000" if session == "regular" else "080000"
+        seen: dict[str, Bar] = {}
+        for _ in range(14):
+            j = self._call(
+                "GET", "/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice", "FHKST03010230",
+                params={
+                    "FID_COND_MRKT_DIV_CODE": self.s.market_div, "FID_INPUT_ISCD": code,
+                    "FID_INPUT_HOUR_1": hour, "FID_INPUT_DATE_1": day,
+                    "FID_PW_DATA_INCU_YN": "Y", "FID_FAKE_TICK_INCU_YN": "",
+                },
+            )
+            rows = [r for r in j.get("output2", []) if r.get("stck_bsop_date") == day and r.get("stck_cntg_hour")]
+            fresh = 0
+            for r in rows:
+                hh = r["stck_cntg_hour"]
+                if hh in seen:
+                    continue
+                fresh += 1
+                seen[hh] = Bar(
+                    datetime.strptime(day + hh, "%Y%m%d%H%M%S"), int(r["stck_oprc"]), int(r["stck_hgpr"]),
+                    int(r["stck_lwpr"]), int(r["stck_prpr"]), int(r.get("cntg_vol") or 0), float(r.get("acml_tr_pbmn") or 0),
+                )
+            if not rows or fresh == 0:
+                break
+            earliest = min(r["stck_cntg_hour"] for r in rows)
+            if earliest <= floor:
+                break
+            hour = earliest
+        return sorted(seen.values(), key=lambda b: b.ts)
+
     def news_titles(self, code: str) -> list[tuple[str, str]]:
         """종합 시황/공시 제목. [(YYYYMMDD, 제목)]. 모의서버에서 미지원일 수 있다."""
         j = self._call(
