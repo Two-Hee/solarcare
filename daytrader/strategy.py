@@ -181,8 +181,9 @@ class FlowStrategy:
                 and s.price >= s.vwap
                 and s.spread_ticks <= p.max_spread_ticks
             ):
+                cap = min(p.max_overnight_exposure, p.overnight_risk / max(p.overnight_gap_pct, 1e-6))
                 return Action(
-                    "buy", frac=size(p.overnight_entry_frac, max(sl, p.overnight_sl_pct)),
+                    "buy", frac=min(size(p.overnight_entry_frac, max(sl, p.overnight_sl_pct)), cap),
                     reason="closing_bet", overnight=True, tp_pct=tp, sl_pct=sl,
                 )
             return HOLD

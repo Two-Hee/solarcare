@@ -63,6 +63,8 @@ class Params:
     position_frac: float = 0.45  # 종목당 최대 비중(자본 대비)
     daily_loss_limit: float = 0.02
     max_overnight_exposure: float = 0.35
+    overnight_gap_pct: float = 0.03  # 정규장 마감 후~다음 정규장 사이 불리한 갭 가정(NXT 시간외·장전에 손절 불가)
+    overnight_risk: float = 0.0075  # 그 갭이 났을 때 감수하는 자본 대비 손실 -> 이월 총 노출 한도 = risk / gap
 
     # --- 수급 분석
     eval_interval_sec: float = 1.0
@@ -169,6 +171,8 @@ LOCKED = {
     "position_frac",
     "daily_loss_limit",
     "max_overnight_exposure",
+    "overnight_gap_pct",
+    "overnight_risk",
     "risk_per_trade",
     "sl_max_pct",
     "vol_adaptive",
@@ -226,6 +230,7 @@ class Settings:
     data_dir: str = "data"
     tr_buy: str = ""
     tr_sell: str = ""
+    market_div: str = "J"  # 시세 조회 시장구분: J=KRX(정규장 15:30 종가 기준), NX=NXT, UN=통합(20:00 종가 기준)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -249,6 +254,7 @@ class Settings:
             data_dir=os.getenv("DAYTRADER_DATA_DIR", "data"),
             tr_buy=os.getenv("KIS_TR_BUY", d_buy),
             tr_sell=os.getenv("KIS_TR_SELL", d_sell),
+            market_div=os.getenv("KIS_MARKET_DIV", "J").strip().upper(),
         )
 
     @property

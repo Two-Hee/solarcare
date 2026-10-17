@@ -518,3 +518,32 @@ def test_replay_regime_provider_has_no_lookahead(tmp_path):
     nxt = d_event + __import__("datetime").timedelta(days=1)
     assert prov("161000", nxt).regime == "breakout"  # 다음 거래일 아침에 비로소 인지
     assert prov("999999", nxt).regime == "unknown"
+
+
+# ---------------------------------------------------------------- 시간외 갭을 가정한 이월 한도 / 시장구분
+from daytrader.config import Settings  # noqa: E402
+from daytrader.risk import RiskManager  # noqa: E402
+
+
+def test_overnight_cap_assumes_afterhours_gap():
+    rm = RiskManager(Params(), kill_file=None)
+    assert rm.overnight_cap() == pytest.approx(0.25)  # 0.75% / 3% (기존 상한 35% 보다 엄격)
+    assert rm.overnight_room(1.0, 0.24) and not rm.overnight_room(1.0, 0.26)
+    wide = RiskManager(Params(overnight_gap_pct=0.05), kill_file=None)
+    assert wide.overnight_cap() == pytest.approx(0.15)  # 갭을 크게 볼수록 이월 한도는 줄어든다
+
+
+def test_closing_bet_size_never_exceeds_gap_cap():
+    st = FlowStrategy(Params())
+    late = make_snap(ts=at(15, 10), score60=60.0, atr1m=0.0025)
+    a = st.decide(ctx(late, now=at(15, 10)))
+    assert a.reason == "closing_bet" and a.frac <= 0.25 + 1e-9  # 기본 종가배팅 비중 30% 도 한도에서 잘림
+    # 3% 갭이 나도 이 종가배팅 때문에 잃는 돈은 자본의 0.75% 이하
+    assert a.frac * 0.03 <= 0.0075 + 1e-9
+
+
+def test_market_div_setting(monkeypatch):
+    monkeypatch.delenv("KIS_MARKET_DIV", raising=False)
+    assert Settings.from_env().market_div == "J"
+    monkeypatch.setenv("KIS_MARKET_DIV", "un")
+    assert Settings.from_env().market_div == "UN"

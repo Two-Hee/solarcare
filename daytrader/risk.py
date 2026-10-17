@@ -33,5 +33,10 @@ class RiskManager:
     def entries_allowed(self) -> bool:
         return not self.halted and not self.kill_switch()
 
+    def overnight_cap(self) -> float:
+        """이월 총 노출 상한(자본 대비). 가정한 갭이 났을 때 손실이 overnight_risk 를 넘지 않게 한다."""
+        gap = max(self.p.overnight_gap_pct, 1e-6)
+        return min(self.p.max_overnight_exposure, self.p.overnight_risk / gap)
+
     def overnight_room(self, equity: float, overnight_exposure: float) -> bool:
-        return equity > 0 and overnight_exposure / equity < self.p.max_overnight_exposure
+        return equity > 0 and overnight_exposure / equity < self.overnight_cap()

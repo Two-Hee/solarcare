@@ -112,7 +112,7 @@ class KisRest:
     def price(self, code: str) -> dict:
         j = self._call(
             "GET", "/uapi/domestic-stock/v1/quotations/inquire-price", "FHKST01010100",
-            params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+            params={"FID_COND_MRKT_DIV_CODE": self.s.market_div, "FID_INPUT_ISCD": code},
         )
         return j["output"]
 
@@ -120,7 +120,7 @@ class KisRest:
         """종목별 투자자 일별 순매수(주). 전일까지 확정분만 사용한다."""
         j = self._call(
             "GET", "/uapi/domestic-stock/v1/quotations/inquire-investor", "FHKST01010900",
-            params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+            params={"FID_COND_MRKT_DIV_CODE": self.s.market_div, "FID_INPUT_ISCD": code},
         )
         today = datetime.now().strftime("%Y%m%d")
         rows = [r for r in j.get("output", []) if r.get("stck_bsop_date", "") < today and r.get("frgn_ntby_qty", "") != ""]
@@ -149,7 +149,7 @@ class KisRest:
         j = self._call(
             "GET", "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice", "FHKST03010100",
             params={
-                "FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code,
+                "FID_COND_MRKT_DIV_CODE": self.s.market_div, "FID_INPUT_ISCD": code,
                 "FID_INPUT_DATE_1": (end - timedelta(days=days)).strftime("%Y%m%d"),
                 "FID_INPUT_DATE_2": end.strftime("%Y%m%d"), "FID_PERIOD_DIV_CODE": "D", "FID_ORG_ADJ_PRC": "0",
             },
