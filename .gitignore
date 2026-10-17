@@ -1,0 +1,11 @@
+.env
+.kis_token*.json
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+logs/
+state/
+reports/
+proposals/
+STOP
