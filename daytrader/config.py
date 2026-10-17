@@ -63,7 +63,7 @@ class Params:
     position_frac: float = 0.45  # 종목당 최대 비중(자본 대비)
     daily_loss_limit: float = 0.02
     max_overnight_exposure: float = 0.35
-    overnight_gap_pct: float = 0.03  # 정규장 마감 후~다음 정규장 사이 불리한 갭 가정(NXT 시간외·장전에 손절 불가)
+    overnight_gap_pct: float = 0.04  # 정규장 마감 후~다음 정규장 사이 불리한 갭 가정(NXT 시간외·장전에 손절 불가). 애경케미칼 10/16 시간외 +3.5% 관측
     overnight_risk: float = 0.0075  # 그 갭이 났을 때 감수하는 자본 대비 손실 -> 이월 총 노출 한도 = risk / gap
 
     # --- 수급 분석
