@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Read(./.kis_token_mock.json)",
+      "Read(./.kis_token_real.json)"
+    ]
+  }
+}
