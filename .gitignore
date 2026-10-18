@@ -9,3 +9,6 @@ state/
 reports/
 proposals/
 STOP
+
+# 대시보드 샘플 생성 중간 산출물
+dashboard/_synth/

@@ -547,3 +547,13 @@ def test_market_div_setting(monkeypatch):
     assert Settings.from_env().market_div == "J"
     monkeypatch.setenv("KIS_MARKET_DIV", "un")
     assert Settings.from_env().market_div == "UN"
+
+
+def test_synth_generate_is_idempotent_when_rerun_in_same_folder(tmp_path):
+    from daytrader.recorder import list_days, load_day
+
+    generate("005930", 2, tmp_path, seed=5)
+    first = {d: len(load_day(tmp_path, d, ["005930"])) for d in list_days(tmp_path, ["005930"])}
+    generate("005930", 2, tmp_path, seed=5)  # 같은 폴더에서 다시
+    second = {d: len(load_day(tmp_path, d, ["005930"])) for d in list_days(tmp_path, ["005930"])}
+    assert first == second and len(first) == 2

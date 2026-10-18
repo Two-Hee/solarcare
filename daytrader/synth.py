@@ -70,6 +70,8 @@ def generate(code: str, days: int, out_dir: str | Path, start_price: int = 70_00
     made: list[str] = []
     while len(made) < days:
         if day.weekday() < 5:
+            # Recorder 는 이어쓰기(append)라, 같은 폴더에서 다시 만들면 틱이 두 배가 된다 -> 그 날짜 파일은 먼저 지운다
+            (Path(out_dir) / "ticks" / day.strftime("%Y%m%d") / f"{code}.csv").unlink(missing_ok=True)
             events, price = gen_day(code, day, price, rng)
             for e in events:
                 (rec.tick if isinstance(e, Tick) else rec.quote)(e)

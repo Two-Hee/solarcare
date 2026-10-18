@@ -1,0 +1,9 @@
+order,stage,label,minutes
+1,not_ready,데이터 준비 전,510
+2,no_compress,압축 아님,9535
+3,no_break,박스 돌파 아님/늦음,4
+4,no_vol,거래량 확장 없음,1
+5,no_flow,매수 우위 없음,0
+6,bad_rr,손익비 안 맞음,0
+7,stale,같은 박스 재진입,0
+8,ok,신호,0

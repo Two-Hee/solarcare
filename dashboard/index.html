@@ -1,0 +1,406 @@
+<style>
+/* Layout: 헤더 → 한눈에 4칸 → 기준별 성적 표 → 누적 손익 선 → 퍼널/구성요소 비교 → 변동폭 프로필/일별 → 설정. 읽는 순서가 "신호가 나오나 → 왜 안 나오나 → 안전장치" */
+.dt { max-width: 68rem; margin-inline: auto; display: flex; flex-direction: column; gap: var(--cds-gap-lg); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+.dt * { box-sizing: border-box; }
+.dt h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: calc(var(--cds-font-size-title) * 1.25); margin: 0; line-height: 1.15; text-wrap: balance; }
+.dt h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.dt .sub { margin: var(--cds-gap-xs) 0 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); max-width: 46rem; }
+.dt .sample { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: baseline; margin-top: var(--cds-gap-md); padding: var(--cds-pad-sm) var(--cds-pad-md); border: 1px dashed var(--color-border-line); border-radius: var(--cds-radius); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.dt .sample b { color: var(--color-warn); font-weight: var(--cds-font-weight-medium); letter-spacing: .04em; }
+.dt .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--cds-gap-md); }
+.dt .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+.dt .card .note { margin: 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.dt .tile .cap { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.dt .tile .val { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.dt .tile .why { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.dt .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
+.dt .scroll { overflow: auto; max-height: 22rem; border-top: 1px solid var(--color-border-line); }
+.dt .scroll.wide { max-height: none; }
+.dt table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.dt th, .dt td { padding: .4rem .55rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--color-border-line); }
+.dt th:first-child, .dt td:first-child, .dt td.l, .dt th.l { text-align: left; }
+.dt td.wrap { white-space: normal; min-width: 12rem; color: var(--color-fg-muted); }
+.dt th { position: sticky; top: 0; background: var(--color-panel); color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); }
+.dt .neg { color: var(--color-bad); } .dt .pos { color: var(--color-ok); } .dt .dim { color: var(--color-fg-muted); }
+.dt .lg { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.dt .lg i { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .35rem; vertical-align: -1px; }
+.dt .chart { position: relative; min-height: 15.6rem; }
+.dt .chart.sm { min-height: 7.5rem; }
+.dt .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.dt .chart text { fill: var(--color-fg-muted); font-size: 11px; font-family: var(--font-anthropic-sans); }
+.dt .tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; z-index: 2; }
+.dt .tip .d { color: var(--cds-text-secondary); } .dt .tip i { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .35rem; }
+.dt .fn { display: flex; flex-direction: column; gap: .45rem; min-height: 14rem; }
+.dt .fr { display: grid; grid-template-columns: minmax(7rem, 11rem) 1fr minmax(4.5rem, auto); gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); }
+.dt .fr .fb { height: 1.1rem; background: var(--cds-chart-grid); border-radius: 4px; overflow: hidden; }
+.dt .fr .fb i { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--cds-chart-muted); }
+.dt .fr.worst .fb i { background: var(--cds-chart-status-critical); }
+.dt .fr .fv { text-align: right; font-variant-numeric: tabular-nums; }
+.dt .fr .fl { color: var(--color-fg-muted); }
+.dt .fail { display: flex; align-items: center; justify-content: center; gap: .375rem; min-height: 6rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.dt .fail i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.dt .empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0; }
+.dt [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.dt .foot { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); max-width: 52rem; margin: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .dt .fr .fb i { transition: width var(--cds-dur-slow) var(--cds-ease-out); }
+}
+</style>
+
+<div class="dt">
+  <header>
+    <h1 id="top">수급 단타 대시보드</h1>
+    <p class="sub">기본 진입 기준(압축 → 확장 돌파)이 얼마나 자주 신호를 내는지, 못 내면 어느 조건에서 걸러지는지, 안전장치는 어떻게 걸려 있는지를 한 화면에 모았습니다.</p>
+    <div class="sample"><b>샘플 데이터</b><span>이 화면의 숫자는 프로그램이 만든 합성 틱을 백테스트한 결과입니다. 실제 종목의 성과가 아니며 수익성의 근거가 아닙니다. 실제 1분봉을 넣으면 같은 화면이 그 데이터로 채워집니다.</span></div>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="기본 기준 요약">
+    <div class="card tile"><div class="cap">진입 횟수 · 압축→확장 돌파</div><div class="val dash-skeleton" id="t-trades" data-source="modes" data-field="trades" data-where="mode=squeeze">&nbsp;</div><div class="why">샘플 기간 전체</div></div>
+    <div class="card tile"><div class="cap">하루 평균 진입</div><div class="val dash-skeleton" id="t-perday" data-source="modes" data-field="per_day" data-where="mode=squeeze">&nbsp;</div><div class="why">통계로 쓰려면 30회 이상 필요</div></div>
+    <div class="card tile"><div class="cap">압축 상태였던 분의 비율</div><div class="val dash-skeleton" id="t-compress" data-source="compress_share" data-field="share">&nbsp;</div><div class="why">데이터가 준비된 진입 시간대 기준</div></div>
+    <div class="card tile"><div class="cap">비교: 수급 점수 방식 누적 수익률</div><div class="val dash-skeleton" id="t-flow" data-source="modes" data-field="total_return" data-where="mode=flow">&nbsp;</div><div class="why">자본 대비 · 같은 합성 데이터</div></div>
+  </section>
+
+  <section class="card" id="sec-modes">
+    <h2>진입 기준별 성적</h2>
+    <p class="note">같은 합성 틱, 같은 비용(수수료·세금·슬리피지 1틱), 종가배팅 끔. 신호가 없으면 비율 칸은 비워 둡니다.</p>
+    <div class="scroll wide">
+      <table id="tbl-modes" data-source="modes" data-row-key="mode">
+        <thead><tr><th class="l" data-field="label">진입 기준</th><th data-field="trades">진입</th><th data-field="per_day">하루 평균</th><th data-field="win_rate">승률</th><th data-field="avg_net_pct">평균 순손익</th><th data-field="profit_factor">손익비(PF)</th><th data-field="total_return">누적 수익률</th><th data-field="max_dd">최대 낙폭</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="sec-equity">
+    <h2>누적 손익 (자본 대비)</h2>
+    <p class="note">거래가 청산될 때마다 계좌 손익을 더한 선입니다. 선이 없는 기준은 진입이 없었다는 뜻입니다.</p>
+    <div class="lg" id="eq-legend"></div>
+    <div class="chart dash-skeleton" id="eq" data-source="trades modes"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card" id="sec-funnel">
+      <h2>왜 신호가 안 나오나</h2>
+      <p class="note">진입 시간대의 모든 분이 조건을 앞에서부터 차례로 통과한 수입니다. 가장 많이 걸러진 단계가 붉은 막대입니다.</p>
+      <div class="fn dash-skeleton" id="funnel" data-source="funnel_steps"></div>
+    </section>
+    <section class="card" id="sec-variants">
+      <h2>조건을 하나씩 빼 보면</h2>
+      <p class="note">'박스 돌파만'이 대조군입니다. 전체 기준이 대조군보다 뚜렷이 나을 때만 압축·거래량·매수 우위가 가치가 있습니다. 신호 30회 미만은 해석하지 마세요.</p>
+      <div class="scroll wide">
+        <table id="tbl-variants" data-source="variants" data-row-key="variant">
+          <thead><tr><th class="l" data-field="variant">변형</th><th data-field="signals">신호</th><th data-field="median_risk">중앙 손절폭</th><th data-field="fwd30">+30분</th><th data-field="tp_first">익절 먼저</th><th data-field="stop_first">손절 먼저</th><th data-field="avg_net">평균 순손익</th><th data-field="vs_control">대조군 대비</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card" id="sec-profile">
+      <h2>하루 중 변동은 언제 큰가</h2>
+      <p class="note">30분 구간별 평균 1분 변동폭(고가−저가)과 거래량 비중입니다.</p>
+      <div class="note">평균 1분 변동폭</div>
+      <div class="chart sm dash-skeleton" id="pf-range" data-source="profile"></div>
+      <div class="note">거래량 비중</div>
+      <div class="chart sm dash-skeleton" id="pf-vol" data-source="profile"></div>
+    </section>
+    <section class="card" id="sec-daily">
+      <h2>일별 요약</h2>
+      <p class="note">갭은 전일 종가 대비 시가, 거래대금은 억원입니다.</p>
+      <div class="scroll">
+        <table id="tbl-daily" data-source="daily" data-row-key="day">
+          <thead><tr><th class="l" data-field="day">일자</th><th data-field="gap">갭</th><th data-field="ret">등락</th><th data-field="range">일중 폭</th><th data-field="t_high">고가</th><th data-field="t_low">저가</th><th data-field="value_eok">거래대금</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" id="sec-recent">
+    <h2>최근 거래</h2>
+    <p class="note">청산 시각이 가장 늦은 12건입니다.</p>
+    <div class="scroll">
+      <table id="tbl-recent" data-source="recent_trades" data-row-key="uid">
+        <thead><tr><th class="l" data-field="label">진입 기준</th><th data-field="exit_ts">청산 시각</th><th data-field="entry_reason">진입 유형</th><th data-field="reason">청산 사유</th><th data-field="net_pct">순손익</th><th data-field="hold_min">보유(분)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="sec-rules">
+    <h2>기준과 안전장치 설정</h2>
+    <p class="note">지금 params.json 이 선택한 값입니다. 안전장치(일일 손실 한도, 이월 한도, 킬스위치)는 어떤 진입 기준에서도 같이 적용됩니다.</p>
+    <div class="scroll">
+      <table id="tbl-rules" data-source="rules" data-row-key="item">
+        <thead><tr><th class="l" data-field="group">구분</th><th class="l" data-field="item">항목</th><th class="l" data-field="value">값</th><th class="l" data-field="note">설명</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="foot">진입 기준은 가설이며 실데이터로 검증되지 않았습니다. 이 화면은 합성 데이터 위에서 파이프라인이 돌아가는 모습을 보여 주는 용도입니다.</p>
+</div>
+
+<script>
+// 계산: 퍼널 단계별 남은 분, 압축 상태 비율, 최근 거래
+dash.calc('compress_share', {
+  inputs: ['funnel'], title: '압축 상태 비율', description: '준비된 분 가운데 압축 조건을 통과한 분의 비율',
+  fn: (funnel) => {
+    const m = {}; let total = 0;
+    for (const r of funnel) { m[r.stage] = +r.minutes; total += +r.minutes; }
+    const ready = total - (m.not_ready || 0);
+    return [{ share: ready > 0 ? 1 - (m.no_compress || 0) / ready : 0 }];
+  }
+});
+dash.calc('funnel_steps', {
+  inputs: ['funnel'], title: '조건별 남은 분', description: '진입 시간대의 분이 조건을 앞에서부터 차례로 통과한 수',
+  fn: (funnel) => {
+    const rows = [...funnel].sort((a, b) => +a.order - +b.order);
+    const total = rows.reduce((a, r) => a + (+r.minutes), 0);
+    let left = total;
+    const out = [{ id: 'all', label: '진입 시간대 전체', left: total, lost: 0 }];
+    for (const r of rows) {
+      if (r.stage === 'ok') break;
+      left -= +r.minutes;
+      out.push({ id: r.stage, label: r.label, left: left, lost: +r.minutes });
+    }
+    return out;
+  }
+});
+dash.calc('recent_trades', {
+  inputs: ['trades'], title: '최근 거래', description: '청산 시각이 가장 늦은 거래 12건',
+  fn: (trades) => [...trades]
+    .sort((a, b) => (a.exit_ts < b.exit_ts ? 1 : a.exit_ts > b.exit_ts ? -1 : 0))
+    .slice(0, 12)
+    .map((r) => ({ uid: r.mode + '-' + r.seq, label: r.label, exit_ts: r.exit_ts, entry_reason: r.entry_reason, reason: r.reason, net_pct: +r.net_pct, hold_min: +r.hold_min }))
+});
+
+(() => {
+  const root = document.querySelector('.dt');
+  const $ = (s) => root.querySelector(s);
+  const F = { int: d3.format(','), p1: d3.format('.1%'), p2: d3.format('.2%'), s2: d3.format('+.2%'), s1: d3.format('+.1%'), n1: d3.format('.1f'), n2: d3.format('.2f') };
+  const num = (v) => (v === '' || v == null ? NaN : +v);
+  const or = (f) => (v) => { const x = num(v); return Number.isFinite(x) ? f(x) : '—'; };
+  const parseT = d3.utcParse('%Y-%m-%d %H:%M');
+  const fmtDay = d3.utcFormat('%-m/%-d');
+  const fmtTip = d3.utcFormat('%-m/%-d %H:%M');
+  const sign = (v) => (+v > 0 ? 'pos' : +v < 0 ? 'neg' : 'dim');
+  const ok = (d) => d && d.status === 'ok';
+  const rowsOf = (d) => (ok(d) ? d.data : []);
+
+  function fail(el) {
+    el.classList.remove('dash-skeleton');
+    el.textContent = '';
+    const w = document.createElement('div'); w.className = 'fail';
+    const dot = document.createElement('i'); const t = document.createElement('span'); t.textContent = '불러오지 못했습니다';
+    w.append(dot, t); el.appendChild(w);
+  }
+  function setVal(el, d, fmt, pick) {
+    if (!ok(d)) { if (d && d.status !== 'loading') { el.classList.remove('dash-skeleton'); el.textContent = '—'; } return; }
+    el.classList.remove('dash-skeleton');
+    el.textContent = pick ? pick(d.data) : '—';
+  }
+  function fillTable(tbl, rows, cols, keyField) {
+    const tb = tbl.tBodies[0] || tbl.appendChild(document.createElement('tbody'));
+    tb.textContent = '';
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      if (keyField) tr.dataset.key = r[keyField];
+      for (const c of cols) {
+        const td = document.createElement('td');
+        const v = r[c.f];
+        td.textContent = c.fmt ? c.fmt(v, r) : v;
+        const cls = typeof c.cls === 'function' ? c.cls(v, r) : c.cls;
+        if (cls) td.className = cls;
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+  }
+  function textW(svg, s) {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.textContent = s;
+    svg.appendChild(t); const w = t.getComputedTextLength(); t.remove(); return w;
+  }
+
+  // ---- 누적 손익 선
+  function drawEquity(el, trades, modes) {
+    el.classList.remove('dash-skeleton'); el.textContent = '';
+    const ids = ['squeeze', 'flow', 'band'];
+    const lab = Object.fromEntries(modes.map((m) => [m.mode, m.label]));
+    const cnt = Object.fromEntries(modes.map((m) => [m.mode, +m.trades]));
+    const series = ids.map((id, i) => ({
+      id, label: lab[id] || id, color: dash.colors[i], n: cnt[id] || 0,
+      pts: trades.filter((t) => t.mode === id).map((t) => ({ t: parseT(t.exit_ts), v: +t.cum_return })).filter((p) => p.t).sort((a, b) => a.t - b.t)
+    }));
+    const lg = $('#eq-legend'); lg.textContent = '';
+    for (const s of series) {
+      const sp = document.createElement('span'); const dot = document.createElement('i'); dot.style.background = s.color;
+      sp.append(dot, document.createTextNode(s.label + ' · ' + (s.n ? F.int(s.n) + '건' : '진입 없음'))); lg.appendChild(sp);
+    }
+    const all = series.flatMap((s) => s.pts);
+    if (!all.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = '표시할 거래가 없습니다.'; el.appendChild(p); return; }
+    const w = Math.max(300, el.clientWidth), h = 250;
+    const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${w} ${h}`).attr('width', '100%').attr('role', 'img').attr('aria-label', '진입 기준별 누적 손익');
+    const node = svg.node();
+    const lo = Math.min(0, d3.min(all, (d) => d.v)), hi = Math.max(0, d3.max(all, (d) => d.v));
+    const yTmp = d3.scaleLinear([lo, hi], [h - 26, 10]).nice();
+    const yfmt = d3.format('.0%');
+    const lw = Math.max(...yTmp.ticks(5).map((t) => textW(node, yfmt(t))), 20);
+    const endW = Math.max(...series.filter((s) => s.pts.length).map((s) => textW(node, F.s1(s.pts[s.pts.length - 1].v))), 30);
+    const m = { t: 10, r: endW + 12, b: 26, l: lw + 10 };
+    const x = d3.scaleUtc([d3.min(all, (d) => d.t), d3.max(all, (d) => d.t)], [m.l, w - m.r]);
+    const y = d3.scaleLinear([lo, hi], [h - m.b, m.t]).nice();
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line')
+      .attr('x1', m.l).attr('x2', w - m.r).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).style('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').attr('transform', `translate(0,${h - m.b})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((w - m.l - m.r) / 90))).tickFormat(fmtDay).tickSizeOuter(0))
+      .call((g) => { g.attr('font-size', null).attr('font-family', null); g.select('.domain').style('stroke', 'var(--cds-chart-axis)'); g.selectAll('.tick line').style('stroke', 'var(--cds-chart-axis)'); g.selectAll('text').style('fill', 'var(--color-fg-muted)'); });
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(yfmt).tickSize(0))
+      .call((g) => { g.attr('font-size', null).attr('font-family', null); g.select('.domain').remove(); g.selectAll('text').style('fill', 'var(--color-fg-muted)').attr('dx', -2); });
+    svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+    const line = d3.line().x((d) => x(d.t)).y((d) => y(d.v));
+    for (const s of series) {
+      if (!s.pts.length) continue;
+      svg.append('path').attr('d', line(s.pts)).attr('fill', 'none').style('stroke', s.color).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    }
+    // 끝 값 라벨(겹치지 않게 12px 이상 띄움)
+    const ends = series.filter((s) => s.pts.length).map((s) => { const p = s.pts[s.pts.length - 1]; return { s, v: p.v, y: y(p.v), x: x(p.t) }; }).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+    for (const e of ends) {
+      svg.append('circle').attr('cx', e.x).attr('cy', y(e.v)).attr('r', 3.5).style('fill', e.s.color);
+      svg.append('text').attr('x', e.x + 7).attr('y', e.y + 4).style('fill', e.s.color).style('font-weight', 600).text(F.s1(e.v));
+    }
+    // 툴팁
+    const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; el.appendChild(tip);
+    const rule = svg.append('line').attr('y1', m.t).attr('y2', h - m.b).style('stroke', 'var(--cds-chart-reference)').attr('visibility', 'hidden');
+    const bis = d3.bisector((d) => d.t).center;
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', w - m.l - m.r).attr('height', h - m.t - m.b).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px] = d3.pointer(ev); const tx = x.invert(px);
+        const rows = series.filter((s) => s.pts.length).map((s) => ({ s, p: s.pts[bis(s.pts, tx)] }));
+        const near = rows.reduce((a, b) => (Math.abs(a.p.t - tx) <= Math.abs(b.p.t - tx) ? a : b));
+        rule.attr('x1', x(near.p.t)).attr('x2', x(near.p.t)).attr('visibility', 'visible');
+        tip.hidden = false; tip.textContent = '';
+        const d = document.createElement('div'); d.className = 'd'; d.textContent = fmtTip(near.p.t); tip.appendChild(d);
+        for (const r of rows) {
+          const l = document.createElement('div'); const dot = document.createElement('i'); dot.style.background = r.s.color;
+          l.append(dot, document.createTextNode(r.s.label + '  ' + F.s2(r.p.v))); tip.appendChild(l);
+        }
+        const bw = el.clientWidth, tw = tip.offsetWidth, tx2 = x(near.p.t);
+        tip.style.left = Math.min(Math.max(0, tx2 + 12), bw - tw) + 'px'; tip.style.top = '8px';
+      })
+      .on('pointerleave', () => { tip.hidden = true; rule.attr('visibility', 'hidden'); });
+  }
+
+  // ---- 퍼널
+  function drawFunnel(el, rows) {
+    el.classList.remove('dash-skeleton'); el.textContent = '';
+    if (!rows.length) return;
+    const total = +rows[0].left || 1;
+    const worst = rows.slice(1).reduce((a, r) => (+r.lost > +(a ? a.lost : -1) ? r : a), null);
+    for (const r of rows) {
+      const row = document.createElement('div'); row.className = 'fr' + (worst && r.id === worst.id && +r.lost > 0 ? ' worst' : '');
+      const l = document.createElement('span'); l.className = 'fl'; l.textContent = r.id === 'all' ? r.label : r.label + ' 제외';
+      const b = document.createElement('span'); b.className = 'fb'; const i = document.createElement('i'); i.style.width = (100 * (+r.left) / total) + '%'; b.appendChild(i);
+      const v = document.createElement('span'); v.className = 'fv'; v.textContent = F.int(+r.left) + (r.id === 'all' ? '' : '  (−' + F.int(+r.lost) + ')');
+      row.append(l, b, v); el.appendChild(row);
+    }
+    const last = rows[rows.length - 1];
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = '마지막 줄이 모든 조건을 통과한 분(= 신호)입니다.'; el.appendChild(p);
+    void last;
+  }
+
+  // ---- 막대
+  function drawBars(el, rows, field, fmt, color) {
+    el.classList.remove('dash-skeleton'); el.textContent = '';
+    if (!rows.length) return;
+    const w = Math.max(280, el.clientWidth), h = 120, m = { t: 16, r: 4, b: 22, l: 4 };
+    const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${w} ${h}`).attr('width', '100%').attr('role', 'img');
+    const x = d3.scaleBand(rows.map((r) => r.bucket), [m.l, w - m.r]).padding(0.25);
+    const max = d3.max(rows, (r) => +r[field]) || 1;
+    const y = d3.scaleLinear([0, max], [h - m.b, m.t]);
+    const bw = x.bandwidth(); const every = bw >= 30 ? 1 : bw >= 18 ? 2 : 3;
+    rows.forEach((r, i) => {
+      const v = +r[field];
+      svg.append('rect').attr('x', x(r.bucket)).attr('y', y(v)).attr('width', bw).attr('height', Math.max(1, h - m.b - y(v))).attr('rx', Math.min(4, bw / 2)).style('fill', color);
+      if (i % every === 0) svg.append('text').attr('x', x(r.bucket) + bw / 2).attr('y', h - 7).attr('text-anchor', 'middle').text(r.bucket);
+    });
+    const hi = rows.reduce((a, r) => (+r[field] > +a[field] ? r : a), rows[0]);
+    svg.append('text').attr('x', x(hi.bucket) + bw / 2).attr('y', y(+hi[field]) - 4).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)').style('font-weight', 600).text(fmt(+hi[field]));
+  }
+
+  dash.onData(() => {
+    const D = {};
+    for (const id of ['modes', 'trades', 'funnel', 'variants', 'profile', 'daily', 'rules', 'compress_share', 'funnel_steps', 'recent_trades']) D[id] = dash.data(id);
+    const pick = (rows, mode, f) => { const r = rows.find((x) => x.mode === mode); return r ? r[f] : null; };
+
+    // 요약 4칸
+    setVal($('#t-trades'), D.modes, null, (r) => F.int(+pick(r, 'squeeze', 'trades')));
+    setVal($('#t-perday'), D.modes, null, (r) => F.n2(+pick(r, 'squeeze', 'per_day')));
+    setVal($('#t-compress'), D.compress_share, null, (r) => F.p1(+r[0].share));
+    setVal($('#t-flow'), D.modes, null, (r) => F.s1(+pick(r, 'flow', 'total_return')));
+    const tf = $('#t-flow'); if (ok(D.modes)) tf.className = 'val ' + sign(pick(D.modes.data, 'flow', 'total_return'));
+
+    // 기준별 성적 표
+    const tm = $('#tbl-modes');
+    if (ok(D.modes)) {
+      const none = (r) => +r.trades === 0;
+      fillTable(tm, D.modes.data, [
+        { f: 'label' }, { f: 'trades', fmt: (v) => F.int(+v) }, { f: 'per_day', fmt: (v) => F.n2(+v) },
+        { f: 'win_rate', fmt: (v, r) => (none(r) ? '' : F.p1(+v)) },
+        { f: 'avg_net_pct', fmt: (v, r) => (none(r) ? '' : F.s2(+v)), cls: (v, r) => (none(r) ? '' : sign(v)) },
+        { f: 'profit_factor', fmt: (v, r) => (none(r) ? '' : F.n2(+v)) },
+        { f: 'total_return', fmt: (v, r) => (none(r) ? '' : F.s1(+v)), cls: (v, r) => (none(r) ? '' : sign(v)) },
+        { f: 'max_dd', fmt: (v, r) => (none(r) ? '' : F.p1(+v)) }
+      ], 'mode');
+    } else if (D.modes.status !== 'loading') fail(tm.parentElement);
+
+    // 누적 손익 선
+    const eq = $('#eq');
+    if (ok(D.trades) && ok(D.modes)) drawEquity(eq, D.trades.data, D.modes.data);
+    else if (D.trades.status !== 'loading' && D.modes.status !== 'loading') fail(eq);
+
+    // 퍼널
+    const fn = $('#funnel');
+    if (ok(D.funnel_steps)) drawFunnel(fn, D.funnel_steps.data); else if (D.funnel_steps.status !== 'loading') fail(fn);
+
+    // 구성요소 제거 비교
+    const tv = $('#tbl-variants');
+    if (ok(D.variants)) {
+      const blank = (r) => +r.signals === 0;
+      fillTable(tv, D.variants.data, [
+        { f: 'variant' }, { f: 'signals', fmt: (v) => F.int(+v) },
+        { f: 'median_risk', fmt: (v, r) => (blank(r) ? '' : F.p2(+v)) },
+        { f: 'fwd30', fmt: (v, r) => (blank(r) ? '' : F.s2(+v)), cls: (v, r) => (blank(r) ? '' : sign(v)) },
+        { f: 'tp_first', fmt: (v, r) => (blank(r) ? '' : F.p1(+v)) },
+        { f: 'stop_first', fmt: (v, r) => (blank(r) ? '' : F.p1(+v)) },
+        { f: 'avg_net', fmt: (v, r) => (blank(r) ? '' : F.s2(+v)), cls: (v, r) => (blank(r) ? '' : sign(v)) },
+        { f: 'vs_control', fmt: (v, r) => (blank(r) ? '' : F.s2(+v)), cls: (v, r) => (blank(r) ? '' : sign(v)) }
+      ], 'variant');
+    } else if (D.variants.status !== 'loading') fail(tv.parentElement);
+
+    // 변동폭 프로필
+    const pr = rowsOf(D.profile);
+    if (ok(D.profile)) { drawBars($('#pf-range'), pr, 'avg_range', (v) => F.p2(v), dash.colors[0]); drawBars($('#pf-vol'), pr, 'vol_share', (v) => F.p1(v), 'var(--cds-chart-muted)'); }
+    else if (D.profile.status !== 'loading') { fail($('#pf-range')); fail($('#pf-vol')); }
+
+    // 일별 / 최근 거래 / 설정
+    const td = $('#tbl-daily');
+    if (ok(D.daily)) fillTable(td, D.daily.data, [
+      { f: 'day' }, { f: 'gap', fmt: or(F.s2), cls: (v) => sign(v) }, { f: 'ret', fmt: or(F.s2), cls: (v) => sign(v) }, { f: 'range', fmt: or(F.p1) },
+      { f: 't_high' }, { f: 't_low' }, { f: 'value_eok', fmt: or(F.int) }
+    ], 'day'); else if (D.daily.status !== 'loading') fail(td.parentElement);
+
+    const tr = $('#tbl-recent');
+    if (ok(D.recent_trades)) fillTable(tr, D.recent_trades.data, [
+      { f: 'label' }, { f: 'exit_ts' }, { f: 'entry_reason' }, { f: 'reason' }, { f: 'net_pct', fmt: or(F.s2), cls: (v) => sign(v) }, { f: 'hold_min', fmt: or(F.n1) }
+    ], 'uid'); else if (D.recent_trades.status !== 'loading') fail(tr.parentElement);
+
+    const tu = $('#tbl-rules');
+    if (ok(D.rules)) fillTable(tu, D.rules.data, [
+      { f: 'group', cls: 'l' }, { f: 'item', cls: 'l' }, { f: 'value', cls: 'l' }, { f: 'note', cls: 'l wrap' }
+    ], 'item'); else if (D.rules.status !== 'loading') fail(tu.parentElement);
+  });
+})();
+</script>

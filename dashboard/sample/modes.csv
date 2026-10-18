@@ -1,0 +1,4 @@
+mode,label,trades,per_day,win_rate,avg_net_pct,profit_factor,total_return,max_dd
+squeeze,압축→확장 돌파,0,0.0,0.0,0.0,0.0,0.0,0.0
+flow,수급 점수,180,6.0,0.3,-0.00254,0.503,-0.12305,0.12429
+band,이평 밭 5분 5/20,46,1.533,0.3261,-0.00376,0.436,-0.07405,0.09853
