@@ -112,7 +112,7 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
   <div class="usage" id="usage"></div>
   <ul id="projList"></ul>
   <div class="row" style="margin-top:16px"><label class="shot alt" style="padding:14px;font-size:16px">📥 zip 불러오기 (다른 기기에서 옮겨오기)<input id="imp" type="file" accept=".zip,application/zip" hidden></label></div>
-  <div class="ver">차곡 v1.0.1</div>
+  <div class="ver">차곡 v1.0.2</div>
 </section>
 
 <section id="proj" hidden>
@@ -390,7 +390,7 @@ $('export').onclick=async()=>{
     outFile=new File([blob],name,{type:'application/zip'});
     let canShare=false;try{canShare=!!(navigator.canShare&&navigator.canShare({files:[outFile]}))}catch(e){}
     $('exName').textContent=name;$('exInfo').textContent=`사진 ${ph.length}장 · ${mb(blob.size)}`;
-    $('exShare').hidden=!canShare;$('exMsg').textContent='';$('exDlg').hidden=false;
+    $('exShare').hidden=true;$('exMsg').textContent='';$('exDlg').hidden=false;
   }catch(e){alert('내보내기 실패: '+e.message)}
   $('export').disabled=false;$('export').textContent='📦 내보내기 (zip)';
 };
@@ -398,7 +398,7 @@ async function markExported(){cur.exported=Date.now();await put('projects',cur)}
 $('exSave').onclick=async()=>{
   const u=URL.createObjectURL(outFile);const a=document.createElement('a');a.href=u;a.download=outFile.name;a.rel='noopener';
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
-  $('exMsg').innerHTML='✅ 저장했습니다.<br><b>내 파일 → 다운로드</b> 폴더에서 확인하세요.<br>카톡 "나에게 보내기"에서 <b>파일</b>로 첨부하면 PC로 옮길 수 있습니다.';
+  $('exMsg').innerHTML='✅ 저장했습니다. (<b>내 파일 → 다운로드</b>)<br><br><b>PC로 보내는 법</b><br>① 카톡 <b>나와의 채팅</b> → <b>＋</b> → <b>파일</b> → 다운로드에서 선택<br>② 또는 <b>내 파일</b> 앱에서 zip을 길게 눌러 <b>공유</b>';
   markExported();
 };
 $('exShare').onclick=async()=>{
