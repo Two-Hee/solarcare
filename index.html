@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F2541B">
+<title>차곡 - 현장사진 보고서</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--c:#F2541B;--c2:#FF8A3D;--ink:#2B2F3A;--bg:#FFF8F4;--line:#F1E4DC}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:17px}
+header{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,var(--c2),var(--c));color:#fff;display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top))}
+header img{width:34px;height:34px;border-radius:9px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+header .tt{flex:1;min-width:0}
+header h1{font-size:20px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header small{display:block;font-size:12px;opacity:.85}
+header button{background:rgba(255,255,255,.25);color:#fff;border:0;font-size:20px;padding:6px 14px;border-radius:8px}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+input,textarea,select{font-size:17px;padding:12px;border:1px solid #DDD;border-radius:10px;width:100%;background:#fff;font-family:inherit;color:var(--ink)}
+.row input,.row select{flex:1;width:auto;min-width:160px}
+button{font-size:17px;padding:12px 18px;border:0;border-radius:10px;background:var(--c);color:#fff;font-weight:600;cursor:pointer}
+button.gray{background:#8A8F99}button.red{background:#D33}button.ink{background:var(--ink)}
+button.ghost{background:#fff;color:var(--c);border:1px solid #FFD2BD}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.shots{display:flex;gap:12px}
+.shot{flex:1;text-align:center;background:linear-gradient(135deg,var(--c2),var(--c));color:#fff;padding:22px;border-radius:16px;font-size:20px;font-weight:700;cursor:pointer}
+.shot.alt{background:var(--ink)}
+label.f{display:block;margin:12px 0 5px;font-weight:600;font-size:15px;color:#666}
+.pv{position:relative}
+#preview{max-width:100%;max-height:340px;display:block;margin:0 auto 6px;border-radius:12px}
+.pvbar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.pvbar button{padding:9px 14px;font-size:15px}
+.hq{display:flex;align-items:center;gap:8px;font-size:15px;color:#555;justify-content:center;margin-top:8px}
+.hq input{width:22px;height:22px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{background:#FFF1E8;color:var(--c);border:1px solid #FFD2BD;padding:6px 12px;border-radius:20px;font-size:15px;font-weight:500}
+.seg{display:flex;border:1px solid #DDD;border-radius:10px;overflow:hidden}
+.seg button{flex:1;background:#fff;color:#666;border-radius:0;font-size:15px;padding:11px 4px;border-right:1px solid #EEE}
+.seg button:last-child{border-right:0}
+.seg button.on[data-s=""]{background:#8A8F99;color:#fff}
+.seg button.on[data-s=before]{background:#5A6272;color:#fff}
+.seg button.on[data-s=during]{background:#2B7BE4;color:#fff}
+.seg button.on[data-s=after]{background:var(--c);color:#fff}
+ul{list-style:none;padding:0;margin:0}
+.proj{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.proj .n{flex:1;cursor:pointer}.proj .n b{display:block;font-size:18px}.proj .n small{color:#888}
+h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.item{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative}
+.item img{width:100%;height:160px;object-fit:cover;display:block}
+.item div{padding:8px 10px;font-size:14px;line-height:1.4}
+.item .d{color:#999;font-size:13px}
+.badge{position:absolute;top:8px;left:8px;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}
+.b-before{background:#5A6272}.b-during{background:#2B7BE4}.b-after{background:var(--c)}
+.mk{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:3px 8px;border-radius:12px}
+.q{color:#999;font-size:14px;margin:4px 0 0;text-align:center}
+.empty{color:#AAA;text-align:center;padding:40px 20px;line-height:1.7}
+.hero{text-align:center;padding:10px 0 18px}
+.hero img{width:84px;height:84px;border-radius:22px;box-shadow:0 6px 18px rgba(242,84,27,.25)}
+.hero h2{margin:10px 0 2px;font-size:26px}.hero p{margin:0;color:#888}
+/* 사진 표시 화면 */
+#draw{position:fixed;inset:0;z-index:50;background:#14161B;display:flex;flex-direction:column}
+#draw[hidden]{display:none}
+.dtools{display:flex;gap:6px;padding:10px;flex-wrap:wrap;align-items:center;background:#22252D;padding-top:max(10px,env(safe-area-inset-top))}
+.dtools button{padding:10px 12px;font-size:15px;background:#3A3F4B}
+.dtools button.on{background:var(--c)}
+.dtools .sp{flex:1}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;padding:0}
+.sw.on{border-color:#fff}
+.dwrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px}
+#cv{max-width:100%;max-height:100%;touch-action:none;border-radius:6px}
+@media (max-width:480px){
+  body{font-size:16px}main{padding:10px}
+  header{padding:10px 12px}header h1{font-size:18px}
+  .shot{padding:16px 8px;font-size:17px}.card{padding:12px}
+  .row input,.row select{min-width:0}.row button{flex:1}
+  .grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .item img{height:110px}.item div{font-size:13px;padding:6px 8px}
+  #preview{max-height:240px}
+  .dtools button{padding:9px 9px;font-size:14px}
+}
+@media (min-width:700px){
+  #form{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  #form .pv{grid-row:1/40;align-self:start;position:sticky;top:76px}
+  #form #preview{max-height:520px}
+}
+</style>
+</head>
+<body>
+<header><button id="back" hidden>←</button><img src="icon-192.png" alt=""><div class="tt"><h1 id="title">차곡</h1><small id="sub">찍으면 차곡차곡, 보고서는 착착</small></div></header>
+<main>
+<section id="home">
+  <div class="hero"><img src="icon-192.png" alt=""><h2>차곡</h2><p>찍으면 차곡차곡, 보고서는 착착</p></div>
+  <div class="row"><input id="newName" placeholder="새 현장명 (예: OO빌딩 정기점검)"><button id="addProj">+ 현장 추가</button></div>
+  <ul id="projList"></ul>
+</section>
+
+<section id="proj" hidden>
+  <div class="card shots" id="shotBox">
+    <label class="shot">📷 사진 촬영<input id="cam" type="file" accept="image/*" capture="environment" hidden></label>
+    <label class="shot alt">🖼 앨범에서 선택<input id="gal" type="file" accept="image/*" multiple hidden></label>
+  </div>
+
+  <div id="form" class="card" hidden>
+    <div class="pv">
+      <img id="preview" alt="">
+      <div class="pvbar"><button id="markBtn" class="ink">✏️ 사진에 표시하기</button><button id="unmark" class="ghost" hidden>표시 지우기</button></div>
+      <label class="hq"><input type="checkbox" id="hq"> 고화질 (명판·작은 글씨용)</label>
+      <p class="q" id="queueInfo"></p>
+    </div>
+    <div>
+      <label class="f">작업 단계</label>
+      <div class="seg" id="stage"><button type="button" data-s="">일반</button><button type="button" data-s="before">작업 전</button><button type="button" data-s="during">작업 중</button><button type="button" data-s="after">작업 후</button></div>
+      <div id="pairBox" hidden><label class="f">짝지을 '작업 전' 사진</label><select id="pair"></select></div>
+      <label class="f">폴더 (공종)</label>
+      <input id="fFolder" placeholder="예: 기계설비, 전기, 소방">
+      <div class="chips" id="folderChips"></div>
+      <label class="f">일시</label>
+      <input id="fDate" type="datetime-local">
+      <label class="f">위치</label>
+      <input id="fLoc" placeholder="예: B동 3층 기계실">
+      <div class="chips" id="locChips"></div>
+      <label class="f">설명</label>
+      <textarea id="fDesc" rows="3" placeholder="예: 펌프 누수 확인, 패킹 교체 필요"></textarea>
+      <div class="row" style="margin-top:14px">
+        <button id="save">저장</button><button id="cancel" class="gray">취소</button><button id="del" class="red" hidden>삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row"><select id="filter"></select><button id="export">📦 내보내기 (zip)</button></div>
+  <div id="list"></div>
+</section>
+</main>
+
+<div id="draw" hidden>
+  <div class="dtools">
+    <button data-t="pen" class="on">✏️ 펜</button><button data-t="circle">⭕ 원</button><button data-t="rect">▭ 네모</button><button data-t="arrow">➜ 화살표</button>
+    <button class="sw on" data-c="#FF1E1E" style="background:#FF1E1E"></button><button class="sw" data-c="#FFD400" style="background:#FFD400"></button><button class="sw" data-c="#FFFFFF" style="background:#fff"></button>
+    <span class="sp"></span>
+    <button id="undo">↶ 되돌리기</button><button id="dcancel" class="gray">취소</button><button id="dok">완료</button>
+  </div>
+  <div class="dwrap"><canvas id="cv"></canvas></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let db,cur=null,queue=[],editing=null,pend=null,stage='';
+const STAGE={before:'작업 전',during:'작업 중',after:'작업 후'};
+
+const pr=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+function openDB(){const r=indexedDB.open('fieldphoto',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('projects',{keyPath:'id'});d.createObjectStore('photos',{keyPath:'id'}).createIndex('pid','pid')};return pr(r)}
+const st=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
+const getAll=s=>pr(st(s).getAll());
+const put=(s,v)=>pr(st(s,'readwrite').put(v));
+const del=(s,k)=>pr(st(s,'readwrite').delete(k));
+const photosOf=pid=>pr(st('photos').index('pid').getAll(pid));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const toLocal=t=>new Date(t-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+const nowLocal=()=>toLocal(Date.now());
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function lsS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+/* 압축: 기본 1280px·70% (약 150KB) / 고화질 1600px·85% */
+async function compress(file,hq){
+  let bmp;try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bmp=await createImageBitmap(file)}
+  const max=hq?1600:1280,q=hq?.85:.7;
+  const k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  const w=Math.round(bmp.width*k),h=Math.round(bmp.height*k);
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(bmp,0,0,w,h);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',q));
+  return {blob,w,h};
+}
+
+/* ---------- 홈 ---------- */
+async function renderHome(){
+  cur=null;$('home').hidden=false;$('proj').hidden=true;$('back').hidden=true;$('title').textContent='차곡';$('sub').textContent='찍으면 차곡차곡, 보고서는 착착';
+  const ps=(await getAll('projects')).sort((a,b)=>b.created-a.created);
+  const all=await getAll('photos');
+  $('projList').innerHTML=ps.length?ps.map(p=>{
+    const n=all.filter(x=>x.pid===p.id).length;
+    const ex=p.exported?`마지막 내보내기 ${new Date(p.exported).toLocaleDateString()}`:'아직 내보내지 않음';
+    return `<li class="proj"><div class="n" data-id="${p.id}"><b>${esc(p.name)}</b><small>사진 ${n}장 · ${ex}</small></div><button class="red" data-del="${p.id}">삭제</button></li>`}).join('')
+    :'<div class="empty">첫 현장을 추가해 보세요.<br>사진을 찍으면 공종별로 차곡차곡 쌓입니다.</div>';
+}
+$('addProj').onclick=async()=>{const n=$('newName').value.trim();if(!n)return;const p={id:uid(),name:n,created:Date.now()};await put('projects',p);$('newName').value='';openProj(p)};
+$('projList').onclick=async e=>{
+  const id=e.target.closest('[data-id]')?.dataset.id;
+  if(id){openProj((await getAll('projects')).find(p=>p.id===id));return}
+  const d=e.target.dataset.del;
+  if(d&&confirm('이 현장과 모든 사진을 삭제할까요?')){for(const x of await photosOf(d))await del('photos',x.id);await del('projects',d);renderHome()}
+};
+$('back').onclick=()=>{hideForm();renderHome()};
+
+/* ---------- 현장 ---------- */
+async function openProj(p){cur=p;$('home').hidden=true;$('proj').hidden=false;$('back').hidden=false;$('title').textContent=p.name;$('sub').textContent='차곡';hideForm();renderList()}
+async function renderList(){
+  const ph=(await photosOf(cur.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  const folders=[...new Set(ph.map(x=>x.folder||'미분류'))];
+  const fv=$('filter').value;
+  $('filter').innerHTML=`<option value="">전체 (${ph.length}장)</option>`+folders.map(f=>`<option ${f===fv?'selected':''}>${esc(f)}</option>`).join('');
+  const show=folders.filter(f=>!$('filter').value||f===$('filter').value);
+  document.querySelectorAll('#list img').forEach(i=>URL.revokeObjectURL(i.src));
+  const grp={};ph.forEach(x=>{if(x.group)grp[x.group]=(grp[x.group]||0)+1});
+  $('list').innerHTML=ph.length?show.map(f=>`<h3>📁 ${esc(f)}</h3><div class="grid">`+ph.filter(x=>(x.folder||'미분류')===f).map(x=>
+    `<div class="item" data-pid="${x.id}"><img src="${URL.createObjectURL(x.blob)}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}${grp[x.group]>1?' 🔗':''}</span>`:''}${x.orig?'<span class="mk">✏️</span>':''}<div><b>${esc(x.location)}</b><br>${esc(x.desc)}<div class="d">${x.date.replace('T',' ')}</div></div></div>`).join('')+'</div>').join('')
+    :'<div class="empty">사진이 없습니다.<br>위의 📷 버튼으로 촬영하세요.</div>';
+}
+$('filter').onchange=renderList;
+$('list').onclick=async e=>{const id=e.target.closest('[data-pid]')?.dataset.pid;if(!id)return;const x=(await photosOf(cur.id)).find(p=>p.id===id);editing=x;queue=[];
+  pend={blob:x.blob,orig:x.orig||null,w:x.w,h:x.h,hq:!!x.hq,file:null};showForm(x)};
+
+/* ---------- 입력 폼 ---------- */
+function chips(){
+  $('locChips').innerHTML=lsGet('locs').map(l=>`<button type="button" class="chip" data-v="${esc(l)}">${esc(l)}</button>`).join('');
+  $('folderChips').innerHTML=lsGet('folders').map(l=>`<button type="button" class="chip" data-v="${esc(l)}">${esc(l)}</button>`).join('');
+}
+$('locChips').onclick=e=>{if(e.target.dataset.v!=null)$('fLoc').value=e.target.dataset.v};
+$('folderChips').onclick=e=>{if(e.target.dataset.v!=null)$('fFolder').value=e.target.dataset.v};
+
+function setPreview(){if($('preview').src)URL.revokeObjectURL($('preview').src);$('preview').src=URL.createObjectURL(pend.blob);$('unmark').hidden=!pend.orig}
+function setStage(s){stage=s;document.querySelectorAll('#stage button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));fillPair()}
+$('stage').onclick=e=>{if(e.target.dataset.s!=null)setStage(e.target.dataset.s)};
+
+async function fillPair(keep){
+  const show=stage==='during'||stage==='after';$('pairBox').hidden=!show;if(!show)return;
+  const bs=(await photosOf(cur.id)).filter(x=>x.stage==='before'&&(!editing||x.id!==editing.id)).sort((a,b)=>b.date.localeCompare(a.date));
+  const want=keep!==undefined?keep:(editing&&editing.group&&editing.group!==editing.id?editing.group:null);
+  let def=want;
+  if(!def){const loc=$('fLoc').value.trim();const m=bs.find(x=>x.location===loc&&loc)||bs.find(x=>x.group===lsS('lastGroup_'+cur.id));def=m?m.group||m.id:''}
+  $('pair').innerHTML='<option value="">짝 없음</option>'+bs.map(x=>{const g=x.group||x.id;return `<option value="${g}" ${g===def?'selected':''}>${esc(x.location||'위치없음')} · ${esc((x.desc||'').slice(0,18))} · ${x.date.slice(5,16).replace('T',' ')}</option>`}).join('');
+}
+$('fLoc').addEventListener('change',()=>{if(!editing)fillPair()});
+
+function showForm(x){
+  setPreview();
+  $('hq').checked=pend.hq;$('hq').disabled=!pend.file;
+  $('fFolder').value=x?x.folder:(lsS('lastFolder_'+cur.id)||'');
+  $('fDate').value=x?x.date:(pend.fdate||nowLocal());
+  $('fLoc').value=x?x.location:(lsS('lastLoc_'+cur.id)||'');
+  $('fDesc').value=x?x.desc:'';
+  $('del').hidden=!x;
+  $('queueInfo').textContent=queue.length?`남은 사진 ${queue.length}장`:'';
+  setStage(x?(x.stage||''):(lsS('lastStage_'+cur.id)||''));
+  chips();$('form').hidden=false;$('shotBox').hidden=true;$('form').scrollIntoView({behavior:'smooth'});
+}
+function hideForm(){$('form').hidden=true;$('shotBox').hidden=false;editing=null;queue=[];pend=null}
+
+async function nextQueue(){
+  if(!queue.length){hideForm();renderList();return}
+  const f=queue.shift();const hq=lsS('hq')==='1';
+  const c=await compress(f,hq);
+  pend={...c,orig:null,hq,file:f,fdate:f._fromGallery&&f.lastModified?toLocal(f.lastModified):null};
+  editing=null;showForm(null);
+}
+$('cam').onchange=e=>{queue=[...e.target.files];e.target.value='';nextQueue()};
+$('gal').onchange=e=>{const fs=[...e.target.files];fs.forEach(f=>f._fromGallery=true);queue=fs;e.target.value='';nextQueue()};
+$('hq').onchange=async()=>{
+  if(!pend.file)return;
+  if(pend.orig&&!confirm('화질을 바꾸면 그린 표시가 지워집니다. 계속할까요?')){$('hq').checked=pend.hq;return}
+  pend.hq=$('hq').checked;lsS('hq',pend.hq?'1':'0');
+  Object.assign(pend,await compress(pend.file,pend.hq),{orig:null});setPreview();
+};
+
+function remember(key,v){if(!v)return;let a=lsGet(key).filter(x=>x!==v);a.unshift(v);lsSet(key,a.slice(0,15))}
+
+$('save').onclick=async()=>{
+  const folder=$('fFolder').value.trim()||'미분류',loc=$('fLoc').value.trim(),desc=$('fDesc').value.trim(),date=$('fDate').value||nowLocal();
+  const rec=editing||{id:uid(),pid:cur.id};
+  let group=null;
+  if(stage==='before')group=(editing&&editing.group)||rec.id;
+  else if(stage==='during'||stage==='after')group=$('pair').value||rec.id;
+  Object.assign(rec,{folder,location:loc,desc,date,stage,group,blob:pend.blob,orig:pend.orig||null,w:pend.w,h:pend.h,hq:pend.hq});
+  await put('photos',rec);
+  remember('locs',loc);remember('folders',folder);
+  lsS('lastFolder_'+cur.id,folder);lsS('lastLoc_'+cur.id,loc);lsS('lastStage_'+cur.id,stage);if(group)lsS('lastGroup_'+cur.id,group);
+  if(editing){hideForm();renderList()}else{renderList();nextQueue()}
+};
+$('cancel').onclick=()=>{if(!editing&&queue.length){nextQueue()}else{hideForm()}};
+$('del').onclick=async()=>{if(editing&&confirm('이 사진을 삭제할까요?')){await del('photos',editing.id);hideForm();renderList()}};
+$('unmark').onclick=()=>{if(pend.orig){pend.blob=pend.orig;pend.orig=null;setPreview()}};
+
+/* ---------- 사진에 표시하기 ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let base=null,strokes=[],drawing=null,tool='pen',color='#FF1E1E';
+$('markBtn').onclick=async()=>{base=await createImageBitmap(pend.blob);cv.width=base.width;cv.height=base.height;strokes=[];redraw();$('draw').hidden=false};
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tool=b.dataset.t;document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b))});
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{color=b.dataset.c;document.querySelectorAll('[data-c]').forEach(x=>x.classList.toggle('on',x===b))});
+const lw=()=>Math.max(4,Math.round(cv.width/110));
+function drawS(s){
+  ctx.strokeStyle=s.c;ctx.lineWidth=s.w;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=s.w*.6;ctx.beginPath();
+  const a=s.p[0],b=s.p[s.p.length-1];
+  if(s.t==='pen'){s.p.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));if(s.p.length===1)ctx.lineTo(a.x+.1,a.y)}
+  else if(s.t==='circle')ctx.ellipse((a.x+b.x)/2,(a.y+b.y)/2,Math.abs(b.x-a.x)/2+1,Math.abs(b.y-a.y)/2+1,0,0,Math.PI*2);
+  else if(s.t==='rect')ctx.rect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));
+  else{ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);const g=Math.atan2(b.y-a.y,b.x-a.x),L=s.w*4.5;
+    ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-L*Math.cos(g-.45),b.y-L*Math.sin(g-.45));
+    ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-L*Math.cos(g+.45),b.y-L*Math.sin(g+.45))}
+  ctx.stroke();ctx.shadowBlur=0;
+}
+function redraw(){ctx.drawImage(base,0,0);strokes.forEach(drawS);if(drawing)drawS(drawing)}
+function pos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}}
+cv.onpointerdown=e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);drawing={t:tool,c:color,w:lw(),p:[pos(e)]};redraw()};
+cv.onpointermove=e=>{if(!drawing)return;const q=pos(e);if(drawing.t==='pen')drawing.p.push(q);else drawing.p[1]=q;redraw()};
+cv.onpointerup=cv.onpointercancel=()=>{if(drawing){strokes.push(drawing);drawing=null;redraw()}};
+$('undo').onclick=()=>{strokes.pop();redraw()};
+$('dcancel').onclick=()=>{$('draw').hidden=true};
+$('dok').onclick=()=>{
+  if(!strokes.length){$('draw').hidden=true;return}
+  cv.toBlob(b=>{pend.orig=pend.orig||pend.blob;pend.blob=b;setPreview();$('draw').hidden=true},'image/jpeg',pend.hq?.85:.75);
+};
+
+/* ---------- 내보내기 ---------- */
+$('export').onclick=async()=>{
+  const ph=(await photosOf(cur.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!ph.length){alert('사진이 없습니다');return}
+  $('export').disabled=true;$('export').textContent='만드는 중…';
+  try{
+    const zip=new JSZip();const data={app:'chagok',version:2,project:cur.name,exportedAt:new Date().toISOString(),photos:[]};
+    ph.forEach((x,i)=>{const fn=String(i+1).padStart(4,'0')+'.jpg';zip.file('photos/'+fn,x.blob);
+      data.photos.push({file:fn,folder:x.folder,date:x.date,location:x.location,desc:x.desc,w:x.w,h:x.h,stage:x.stage||'',group:x.group||null,marked:!!x.orig})});
+    zip.file('data.json',JSON.stringify(data,null,1));
+    const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
+    const d=new Date();const name=`차곡_${cur.name.replace(/[\\/:*?"<>|]/g,'_')}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.zip`;
+    const file=new File([blob],name,{type:'application/zip'});
+    let shared=false;
+    try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});shared=true}}catch(e){if(e.name==='AbortError')shared=true}
+    if(!shared){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      alert(`'${name}' 파일이 다운로드 폴더에 저장되었습니다.\n(${(blob.size/1048576).toFixed(1)}MB)\n내 파일 앱 또는 카톡 '나에게 보내기'로 PC에 보내세요.`)}
+    cur.exported=Date.now();await put('projects',cur);
+  }catch(e){alert('내보내기 실패: '+e.message)}
+  $('export').disabled=false;$('export').textContent='📦 내보내기 (zip)';
+};
+
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+openDB().then(d=>{db=d;renderHome()}).catch(e=>alert('저장소를 열 수 없습니다: '+e.message));
+</script>
+</body>
+</html>

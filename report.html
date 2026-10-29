@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>차곡 보고서 - 사진대지 생성기</title>
+<link rel="icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+:root{--c:#F2541B;--c2:#FF8A3D;--ink:#2B2F3A;--bg:#FFF8F4}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Malgun Gothic",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(135deg,var(--c2),var(--c));color:#fff;padding:12px 24px;display:flex;align-items:center;gap:12px}
+header img{width:40px;height:40px;border-radius:10px}
+header b{font-size:21px}header small{opacity:.85;margin-left:8px}
+main{max-width:1240px;margin:0 auto;padding:20px}
+#drop{border:3px dashed #FFB48F;background:#fff;border-radius:16px;padding:40px;text-align:center;font-size:18px;cursor:pointer}
+#drop.on{background:#FFE9DC}
+.panel{background:#fff;border-radius:14px;padding:16px 18px;margin:14px 0;display:flex;flex-wrap:wrap;gap:14px;align-items:end;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.panel h4{width:100%;margin:0 0 -4px;font-size:15px;color:var(--c)}
+.panel label{display:flex;flex-direction:column;font-size:13px;font-weight:600;color:#666;gap:4px}
+.panel label.ck{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
+input,select{font-size:15px;padding:8px 10px;border:1px solid #DDD;border-radius:8px;font-family:inherit}
+button{font-size:15px;padding:10px 18px;border:0;border-radius:8px;background:var(--c);color:#fff;font-weight:700;cursor:pointer}
+button.dark{background:var(--ink)}button.ghost{background:#fff;color:var(--c);border:1px solid #FFD2BD}button:disabled{opacity:.5}
+#logoPv{height:40px;max-width:140px;object-fit:contain;border:1px dashed #DDD;border-radius:6px;padding:2px;background:#fafafa}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.it{background:#fff;border-radius:10px;overflow:hidden;font-size:13px;position:relative}
+.it.off{opacity:.35}
+.it img{width:100%;height:140px;object-fit:cover;display:block}
+.it div{padding:6px 8px;line-height:1.4}
+.it input{position:absolute;top:8px;right:8px;width:20px;height:20px}
+.badge{position:absolute;top:8px;left:8px;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}
+.b-before{background:#5A6272}.b-during{background:#2B7BE4}.b-after{background:var(--c)}
+.tag{color:var(--c);font-weight:700}
+#info{font-size:15px;margin:10px 0}
+.acts{display:flex;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><img src="icon-192.png" alt="" onerror="this.remove()"><b>차곡 보고서</b><small>사진대지 · PPT 자동 생성</small></header>
+<main>
+<div id="drop">📂 차곡 앱에서 내보낸 <b>zip 파일</b>을 여기에 끌어다 놓거나 클릭하세요<br><small>(여러 작업자의 zip을 한 번에 넣으면 하나로 합쳐집니다)</small>
+<input id="file" type="file" accept=".zip" multiple hidden></div>
+
+<div id="work" hidden>
+<div id="info"></div>
+
+<div class="panel">
+  <h4>📄 표지 · 회사 정보 <small style="color:#999;font-weight:400">(한 번 입력하면 이 PC에 기억됩니다)</small></h4>
+  <label class="ck"><input type="checkbox" id="useCover" checked> 표지 넣기</label>
+  <label>보고서 제목<input id="title" size="26"></label>
+  <label>현장명<input id="site" size="20"></label>
+  <label>업체명<input id="company" size="18"></label>
+  <label>작성자<input id="author" size="10"></label>
+  <label>작성일<input id="rdate" type="date"></label>
+  <label>회사 로고<span style="display:flex;gap:6px;align-items:center"><img id="logoPv" alt="" hidden><button class="ghost" id="logoBtn" type="button">로고 선택</button><button class="ghost" id="logoDel" type="button" hidden>✕</button></span><input type="file" id="logoFile" accept="image/png,image/jpeg" hidden></label>
+  <label class="ck"><input type="checkbox" id="useAppr" checked> 결재란</label>
+  <label>결재란 항목 (쉼표 구분)<input id="appr" size="16" value="담당,검토,승인"></label>
+</div>
+
+<div class="panel">
+  <h4>🧩 배치</h4>
+  <label>공종 필터<select id="folder"></select></label>
+  <label>정렬<select id="sort"><option value="date">일시순</option><option value="folder">공종 → 일시순</option></select></label>
+  <label class="ck"><input type="checkbox" id="compare" checked> 작업 전·후 나란히 비교</label>
+  <label>엑셀<select id="xper"><option value="2">페이지당 2장 (1열)</option><option value="4" selected>페이지당 4장 (2열)</option><option value="6">페이지당 6장 (2열)</option></select></label>
+  <label>PPT<select id="pper"><option value="1">슬라이드당 1장</option><option value="2" selected>슬라이드당 2장</option><option value="4">슬라이드당 4장</option></select></label>
+  <div class="acts"><button id="bx">📊 엑셀 사진대지</button><button id="bp">📽 PPT 생성</button><button id="br" class="dark">🗂 사진 이름정리 zip</button></div>
+</div>
+<div class="grid" id="grid"></div>
+</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let items=[];
+const STAGE={before:'작업 전',during:'작업 중',after:'작업 후'};
+const SCOL={before:'5A6272',during:'2B7BE4',after:'F2541B'};
+const SORD={before:0,during:1,after:2,'':3};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=d=>(d||'').replace('T',' ');
+const safe=s=>(s||'').replace(/[\\/:*?"<>|\n\r]/g,'_').trim();
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+/* ---------- 설정 기억 ---------- */
+const KEYS=['company','author','appr'];
+function loadCfg(){try{const c=JSON.parse(localStorage.getItem('chagok_cfg')||'{}');KEYS.forEach(k=>{if(c[k]!=null)$(k).value=c[k]});
+  if(c.useCover!=null)$('useCover').checked=c.useCover;if(c.useAppr!=null)$('useAppr').checked=c.useAppr;if(c.compare!=null)$('compare').checked=c.compare;
+  if(c.logo)setLogo(c.logo)}catch(e){}}
+function saveCfg(){try{const c={};KEYS.forEach(k=>c[k]=$(k).value);c.useCover=$('useCover').checked;c.useAppr=$('useAppr').checked;c.compare=$('compare').checked;c.logo=logo;localStorage.setItem('chagok_cfg',JSON.stringify(c))}catch(e){}}
+['company','author','appr','useCover','useAppr','compare'].forEach(k=>$(k).addEventListener('change',saveCfg));
+let logo=null,logoDim=null;
+function setLogo(u){logo=u;$('logoPv').hidden=!u;$('logoDel').hidden=!u;if(u){$('logoPv').src=u;const im=new Image();im.onload=()=>logoDim={w:im.naturalWidth,h:im.naturalHeight};im.src=u}else logoDim=null}
+$('logoBtn').onclick=()=>$('logoFile').click();
+$('logoDel').onclick=()=>{setLogo(null);saveCfg()};
+$('logoFile').onchange=e=>{const f=e.target.files[0];if(!f)return;
+  const im=new Image();im.onload=()=>{const k=Math.min(1,400/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);setLogo(c.toDataURL('image/png'));saveCfg()};
+  im.src=URL.createObjectURL(f);e.target.value=''};
+loadCfg();$('rdate').value=today();
+
+/* ---------- 불러오기 ---------- */
+const drop=$('drop');
+drop.onclick=()=>$('file').click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add('on')};
+drop.ondragleave=()=>drop.classList.remove('on');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('on');load([...e.dataTransfer.files])};
+$('file').onchange=e=>{load([...e.target.files]);e.target.value=''};
+
+async function load(files){
+  const names=[];
+  for(const f of files){
+    try{
+      const zip=await JSZip.loadAsync(f);
+      const j=JSON.parse(await zip.file('data.json').async('string'));
+      names.push(j.project);const tag=Math.random().toString(36).slice(2,6);
+      for(const p of j.photos){
+        const b64=await zip.file('photos/'+p.file).async('base64');
+        items.push({...p,stage:p.stage||'',group:p.group?tag+p.group:null,project:j.project,url:'data:image/jpeg;base64,'+b64,on:true});
+      }
+    }catch(e){alert(f.name+' 을(를) 읽을 수 없습니다: '+e.message)}
+  }
+  if(!items.length)return;
+  if(!$('site').value)$('site').value=names[0]||'';
+  if(!$('title').value)$('title').value=(names[0]||'현장')+' 사진대지';
+  $('work').hidden=false;refresh();
+}
+function list(){
+  let a=items.filter(x=>!$('folder').value||x.folder===$('folder').value);
+  a.sort((x,y)=>$('sort').value==='folder'?(x.folder.localeCompare(y.folder)||x.date.localeCompare(y.date)):x.date.localeCompare(y.date));
+  return a;
+}
+function refresh(){
+  const fs=[...new Set(items.map(x=>x.folder))];const v=$('folder').value;
+  $('folder').innerHTML='<option value="">전체</option>'+fs.map(f=>`<option ${f===v?'selected':''}>${esc(f)}</option>`).join('');
+  const a=list();const pairs=new Set(a.filter(x=>x.on&&x.group&&a.filter(y=>y.on&&y.group===x.group).length>1).map(x=>x.group)).size;
+  $('info').innerHTML=`사진 <b>${items.length}</b>장 불러옴 · 보고서 포함 <b>${a.filter(x=>x.on).length}</b>장 · 전·후 비교 <b>${pairs}</b>쌍 <small>(체크 해제하면 제외)</small>`;
+  $('grid').innerHTML=a.map(x=>`<div class="it ${x.on?'':'off'}"><input type="checkbox" data-i="${items.indexOf(x)}" ${x.on?'checked':''}><img src="${x.url}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}</span>`:''}<div><span class="tag">[${esc(x.folder)}]</span> ${esc(x.location)}<br>${esc(x.desc)}<br><small>${fmt(x.date)}</small></div></div>`).join('');
+}
+$('grid').onchange=e=>{const i=e.target.dataset.i;if(i!=null){items[i].on=e.target.checked;refresh()}};
+$('folder').onchange=refresh;$('sort').onchange=refresh;
+
+/* 전·후 비교 배치: 같은 그룹을 전→중→후로 붙이고, 2열일 때 그룹이 항상 왼쪽에서 시작하도록 빈칸을 채움 */
+function arrange(cols){
+  const a=list().filter(x=>x.on);
+  if(!$('compare').checked||cols<2)return a;
+  const g={};a.forEach(x=>{if(x.group)(g[x.group]=g[x.group]||[]).push(x)});
+  const multi=Object.values(g).filter(v=>v.length>1);
+  const used=new Set(multi.flat());
+  multi.sort((p,q)=>p[0].date.localeCompare(q[0].date));
+  const out=[];
+  multi.forEach(v=>{v.sort((p,q)=>SORD[p.stage]-SORD[q.stage]||p.date.localeCompare(q.date));out.push(...v);while(out.length%cols)out.push(null)});
+  a.filter(x=>!used.has(x)).forEach(x=>out.push(x));
+  return out;
+}
+const cover=()=>({on:$('useCover').checked,title:$('title').value||'사진대지',site:$('site').value,company:$('company').value,author:$('author').value,date:$('rdate').value,
+  appr:$('useAppr').checked?$('appr').value.split(',').map(s=>s.trim()).filter(Boolean).slice(0,5):[]});
+
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+async function busy(btn,fn){const t=btn.textContent;btn.disabled=true;btn.textContent='생성 중…';try{await fn()}catch(e){alert('오류: '+e.message);console.error(e)}btn.disabled=false;btn.textContent=t}
+
+/* ---------- 엑셀 ---------- */
+const bd={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+const FN='맑은 고딕';
+function excelCover(wb,cv,count,folders){
+  const ws=wb.addWorksheet('표지',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:1,horizontalCentered:true,margins:{left:.5,right:.5,top:.6,bottom:.6,header:.2,footer:.2}}});
+  ws.columns=Array(6).fill({width:14});
+  for(let i=1;i<=40;i++)ws.getRow(i).height=20;
+  // 결재란
+  if(cv.appr.length){
+    const n=cv.appr.length,start=7-n;
+    ws.getCell(2,start-1).value='결\n재';
+    if(start-1>=1){const c=ws.getCell(2,start-1);ws.mergeCells(2,start-1,3,start-1);c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.font={name:FN,size:10,bold:true};c.border=bd;c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E8'}}}
+    cv.appr.forEach((t,i)=>{const h=ws.getCell(2,start+i);h.value=t;h.alignment={horizontal:'center',vertical:'middle'};h.font={name:FN,size:10,bold:true};h.border=bd;h.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E8'}};ws.getCell(3,start+i).border=bd});
+    ws.getRow(3).height=48;
+  }
+  if(logo&&logoDim){const id=wb.addImage({base64:logo,extension:'png'});const h=56,w=Math.min(200,logoDim.w*h/logoDim.h);ws.addImage(id,{tl:{col:0.1,row:1.1},ext:{width:w,height:h},editAs:'oneCell'})}
+  ws.mergeCells(10,1,10,6);const t=ws.getCell(10,1);t.value=cv.title;t.font={name:FN,size:26,bold:true,color:{argb:'FF2B2F3A'}};t.alignment={horizontal:'center',vertical:'middle'};ws.getRow(10).height=60;
+  ws.mergeCells(11,2,11,5);const ln=ws.getCell(11,2);ln.border={bottom:{style:'thick',color:{argb:'FFF2541B'}}};ws.getRow(11).height=8;
+  const rows=[['현장명',cv.site],['업체명',cv.company],['작성자',cv.author],['작성일',cv.date],['사진 매수',count+'장'],['공종',folders.join(', ')]];
+  rows.forEach((r,i)=>{const R=15+i;ws.getRow(R).height=30;
+    ws.mergeCells(R,3,R,5);
+    const L=ws.getCell(R,2),V=ws.getCell(R,3);L.value=r[0];V.value=r[1]||'';
+    L.font={name:FN,size:11,bold:true};L.alignment={horizontal:'center',vertical:'middle'};L.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E8'}};L.border=bd;
+    V.font={name:FN,size:11};V.alignment={vertical:'middle',indent:1,wrapText:true};[3,4,5].forEach(c=>ws.getCell(R,c).border=bd)});
+  ws.mergeCells(38,1,38,6);const f=ws.getCell(38,1);f.value=cv.company||'';f.font={name:FN,size:14,bold:true};f.alignment={horizontal:'center'};
+  ws.pageSetup.printArea='A1:F40';
+}
+$('bx').onclick=()=>busy($('bx'),async()=>{
+  const per=+$('xper').value,cols=per===2?1:2,rowsPer=per===6?3:2,imgRows=per===6?8:15,RH=18,PX=RH*4/3;
+  const a=arrange(cols);if(!a.filter(Boolean).length)return alert('포함된 사진이 없습니다');
+  const cv=cover();
+  const wb=new ExcelJS.Workbook();wb.creator='차곡';
+  if(cv.on)excelCover(wb,cv,a.filter(Boolean).length,[...new Set(a.filter(Boolean).map(x=>x.folder))]);
+  const ws=wb.addWorksheet('사진대지',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.4,right:.4,top:.5,bottom:.5,header:.2,footer:.2}}});
+  const widths=cols===1?[12,70]:[9,33,2,9,33];
+  ws.columns=widths.map(w=>({width:w}));
+  const cpx=w=>Math.floor(w*7+5);
+  const blocks=cols===1?[[1,2]]:[[1,2],[4,5]];
+  const font={name:FN,size:10};
+  let r=1,page=0;const pages=Math.ceil(a.length/per);
+  for(let p=0;p<a.length;p+=per){
+    page++;
+    ws.mergeCells(r,1,r,widths.length);
+    const tc=ws.getCell(r,1);tc.value=`${cv.title}   (${page}/${pages})`;tc.font={name:FN,size:14,bold:true};tc.alignment={horizontal:'center',vertical:'middle'};
+    tc.border={bottom:{style:'medium',color:{argb:'FFF2541B'}}};
+    ws.getRow(r).height=28;r++;
+    const chunk=a.slice(p,p+per);
+    for(let rr=0;rr<rowsPer;rr++){
+      const top=r;
+      for(let i=0;i<imgRows;i++)ws.getRow(r+i).height=RH;
+      const info=[['공종','folder',RH],['일시','date',RH],['위치','location',RH],['설명','desc',32]];
+      info.forEach((f,k)=>ws.getRow(r+imgRows+k).height=f[2]);
+      for(let c=0;c<cols;c++){
+        const x=chunk[rr*cols+c];const [cl,cv2]=blocks[c];
+        ws.mergeCells(top,cl,top+imgRows-1,cv2);
+        ws.getCell(top,cl).border=bd;
+        info.forEach((f,k)=>{
+          const row=top+imgRows+k;const L=ws.getCell(row,cl),V=ws.getCell(row,cv2);
+          L.value=f[0];L.font={...font,bold:true};L.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E8'}};L.alignment={horizontal:'center',vertical:'middle'};L.border=bd;
+          let val='';
+          if(x){val=f[1]==='date'?fmt(x.date):x[f[1]]||'';
+            if(f[1]==='folder'&&x.stage){V.value={richText:[{text:val+'   ',font}, {text:`[${STAGE[x.stage]}]`,font:{...font,bold:true,color:{argb:'FF'+SCOL[x.stage]}}}]}}
+            else V.value=val}
+          else V.value='';
+          V.font=V.font||font;if(!(f[1]==='folder'&&x&&x.stage))V.font=font;V.alignment={vertical:'middle',wrapText:true};V.border=bd;
+        });
+        if(x){
+          const bw=cpx(widths[cl-1])+cpx(widths[cv2-1])-8,bh=imgRows*PX-8;
+          const k=Math.min(bw/x.w,bh/x.h),w=x.w*k,h=x.h*k;
+          const ox=(bw-w)/2+4,oy=(bh-h)/2+4;
+          const w1=cpx(widths[cl-1]);
+          const colF=ox<w1?(cl-1)+ox/w1:cl+(ox-w1)/cpx(widths[cv2-1]);
+          const id=wb.addImage({base64:x.url,extension:'jpeg'});
+          ws.addImage(id,{tl:{col:colF,row:(top-1)+oy/PX},ext:{width:w,height:h},editAs:'oneCell'});
+        }
+      }
+      r=top+imgRows+info.length;
+      if(rr<rowsPer-1){ws.getRow(r).height=8;r++}
+    }
+    if(p+per<a.length)ws.getRow(r-1).addPageBreak();
+  }
+  ws.pageSetup.printArea=`A1:${String.fromCharCode(64+widths.length)}${r-1}`;
+  const buf=await wb.xlsx.writeBuffer();
+  dl(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),safe(cv.title)+'.xlsx');
+});
+
+/* ---------- PPT ---------- */
+function pptCover(pptx,cv,count){
+  const s=pptx.addSlide();
+  s.background={color:'FFFFFF'};
+  s.addShape(pptx.ShapeType.rect,{x:0,y:5.35,w:10,h:.275,fill:{color:'F2541B'},line:{color:'F2541B'}});
+  if(logo&&logoDim){const h=.6,w=Math.min(2.4,logoDim.w*h/logoDim.h);s.addImage({data:logo,x:.4,y:.35,w,h})}
+  if(cv.appr.length){
+    const n=cv.appr.length,cw=.85,x=9.6-cw*n-.35;
+    const head=[{text:'결\n재',options:{rowspan:2,fill:{color:'FFF1E8'},bold:true,align:'center',valign:'middle'}},...cv.appr.map(t=>({text:t,options:{fill:{color:'FFF1E8'},bold:true,align:'center'}}))];
+    s.addTable([head,cv.appr.map(()=>({text:''}))],{x,y:.3,colW:[.35,...cv.appr.map(()=>cw)],rowH:[.28,.62],fontFace:FN,fontSize:9,border:{type:'solid',color:'888888',pt:.75}});
+  }
+  s.addText(cv.title,{x:.5,y:1.7,w:9,h:.9,fontFace:FN,fontSize:34,bold:true,color:'2B2F3A',align:'center'});
+  s.addShape(pptx.ShapeType.line,{x:3.5,y:2.7,w:3,h:0,line:{color:'F2541B',width:3}});
+  const lines=[['현장명',cv.site],['업체명',cv.company],['작성자',cv.author],['작성일',cv.date],['사진 매수',count+'장']].filter(l=>l[1]);
+  s.addTable(lines.map(l=>[{text:l[0],options:{bold:true,fill:{color:'FFF1E8'},align:'center'}},{text:l[1]}]),
+    {x:2.6,y:3.0,colW:[1.3,3.5],rowH:.34,fontFace:FN,fontSize:12,color:'2B2F3A',border:{type:'solid',color:'DDDDDD',pt:.75},valign:'middle'});
+}
+$('bp').onclick=()=>busy($('bp'),async()=>{
+  const n=+$('pper').value,cols=n===1?1:2,rows=n===4?2:1;
+  const a=arrange(cols);if(!a.filter(Boolean).length)return alert('포함된 사진이 없습니다');
+  const cv=cover();
+  const pptx=new PptxGenJS();pptx.layout='LAYOUT_16x9';pptx.company=cv.company||'차곡';pptx.title=cv.title;
+  if(cv.on)pptCover(pptx,cv,a.filter(Boolean).length);
+  const X0=.3,Y0=.7,W=9.4,H=4.75,cw=W/cols,ch=H/rows,cap=n===4?.55:.75,fs=n===4?9:11;
+  for(let p=0;p<a.length;p+=n){
+    const s=pptx.addSlide();
+    if(logo&&logoDim){const h=.32,w=Math.min(1.4,logoDim.w*h/logoDim.h);s.addImage({data:logo,x:9.7-w,y:.17,w,h})}
+    s.addText(cv.title,{x:X0,y:.15,w:7.5,h:.45,fontFace:FN,fontSize:18,bold:true,color:'2B2F3A'});
+    s.addShape(pptx.ShapeType.line,{x:X0,y:.62,w:W,h:0,line:{color:'F2541B',width:2}});
+    s.addText(`${Math.floor(p/n)+1}`,{x:9.2,y:5.3,w:.5,h:.25,fontFace:FN,fontSize:9,color:'999999',align:'right'});
+    a.slice(p,p+n).forEach((x,i)=>{
+      if(!x)return;
+      const cx=X0+(i%cols)*cw,cy=Y0+Math.floor(i/cols)*ch;
+      const bw=cw-.15,bh=ch-cap-.1;
+      const k=Math.min(bw/x.w,bh/x.h),w=x.w*k,h=x.h*k,ix=cx+(bw-w)/2,iy=cy+(bh-h)/2;
+      s.addImage({data:x.url,x:ix,y:iy,w,h});
+      if(x.stage)s.addText(STAGE[x.stage],{x:ix+.08,y:iy+.08,w:n===4?.8:1,h:n===4?.26:.32,fontFace:FN,fontSize:n===4?9:11,bold:true,color:'FFFFFF',align:'center',valign:'middle',fill:{color:SCOL[x.stage]},rectRadius:.05,shape:pptx.ShapeType.roundRect});
+      s.addText([
+        {text:`[${x.folder}] `,options:{bold:true,color:'F2541B'}},
+        {text:`${x.location||''}   ${fmt(x.date)}`,options:{color:'666666',breakLine:true}},
+        {text:x.desc||'',options:{color:'2B2F3A'}}
+      ],{x:cx,y:cy+bh+.02,w:bw,h:cap,fontFace:FN,fontSize:fs,valign:'top',margin:2});
+    });
+  }
+  await pptx.writeFile({fileName:safe(cv.title)+'.pptx'});
+});
+
+/* ---------- 이름정리 zip ---------- */
+$('br').onclick=()=>busy($('br'),async()=>{
+  const a=list().filter(x=>x.on);if(!a.length)return alert('포함된 사진이 없습니다');
+  const z=new JSZip();const used={};
+  for(const x of a){
+    const d=(x.date||'').replace(/[-:]/g,'').replace('T','_');
+    let base=`${d}_${x.stage?STAGE[x.stage].replace(' ','')+'_':''}${safe(x.location)}_${safe(x.desc).slice(0,25)}`.replace(/_+$/,'');
+    const key=safe(x.folder)+'/'+base;used[key]=(used[key]||0)+1;
+    if(used[key]>1)base+=`(${used[key]})`;
+    z.file(`${safe(x.folder)}/${base}.jpg`,x.url.split(',')[1],{base64:true});
+  }
+  dl(await z.generateAsync({type:'blob'}),safe($('title').value||'사진')+'_정리.zip');
+});
+</script>
+</body>
+</html>
