@@ -73,6 +73,9 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
 .hero img{width:84px;height:84px;border-radius:22px;box-shadow:0 6px 18px rgba(242,84,27,.25)}
 .hero h2{margin:10px 0 2px;font-size:26px}.hero p{margin:0;color:#888}
 /* 사진 표시 화면 */
+#exDlg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px}
+#exDlg[hidden]{display:none}
+.exbox{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:420px}
 #draw{position:fixed;inset:0;z-index:50;background:#14161B;display:flex;flex-direction:column}
 #draw[hidden]{display:none}
 .dtools{display:flex;gap:6px;padding:10px;flex-wrap:wrap;align-items:center;background:#22252D;padding-top:max(10px,env(safe-area-inset-top))}
@@ -109,7 +112,7 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
   <div class="usage" id="usage"></div>
   <ul id="projList"></ul>
   <div class="row" style="margin-top:16px"><label class="shot alt" style="padding:14px;font-size:16px">📥 zip 불러오기 (다른 기기에서 옮겨오기)<input id="imp" type="file" accept=".zip,application/zip" hidden></label></div>
-  <div class="ver">차곡 v1.0</div>
+  <div class="ver">차곡 v1.0.1</div>
 </section>
 
 <section id="proj" hidden>
@@ -153,6 +156,17 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
 </section>
 </main>
 
+<div id="exDlg" hidden>
+  <div class="exbox">
+    <h3 style="margin:0 0 6px">📦 내보내기 준비 완료</h3>
+    <div id="exName" style="font-weight:700;word-break:break-all"></div>
+    <div id="exInfo" style="color:#888;font-size:14px;margin:4px 0 14px"></div>
+    <button id="exSave" style="width:100%;margin-bottom:8px">💾 다운로드 폴더에 저장</button>
+    <button id="exShare" class="ink" style="width:100%;margin-bottom:8px" hidden>📤 공유 (카톡·메일 등)</button>
+    <p id="exMsg" style="font-size:14px;line-height:1.6;color:#2B2F3A"></p>
+    <button id="exClose" class="gray" style="width:100%">닫기</button>
+  </div>
+</div>
 <div id="draw" hidden>
   <div class="dtools">
     <button data-t="pen" class="on">✏️ 펜</button><button data-t="circle">⭕ 원</button><button data-t="rect">▭ 네모</button><button data-t="arrow">➜ 화살표</button>
@@ -360,7 +374,9 @@ $('dok').onclick=()=>{
 };
 
 /* ---------- 내보내기 ---------- */
+let outFile=null;
 $('export').onclick=async()=>{
+  if(typeof JSZip==='undefined'){alert('내보내기 기능을 불러오지 못했습니다.\n인터넷이 되는 곳에서 차곡을 다시 열어 주세요.');return}
   const ph=(await photosOf(cur.id)).sort(byOrd);
   if(!ph.length){alert('사진이 없습니다');return}
   $('export').disabled=true;$('export').textContent='만드는 중…';
@@ -369,17 +385,27 @@ $('export').onclick=async()=>{
     ph.forEach((x,i)=>{const fn=String(i+1).padStart(4,'0')+'.jpg';zip.file('photos/'+fn,x.blob);
       data.photos.push({file:fn,folder:x.folder,date:x.date,location:x.location,desc:x.desc,w:x.w,h:x.h,stage:x.stage||'',group:x.group||null,marked:!!x.orig,todo:!!x.todo,order:i})});
     zip.file('data.json',JSON.stringify(data,null,1));
-    const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
-    const d=new Date();const name=`차곡_${cur.name.replace(/[\\/:*?"<>|]/g,'_')}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.zip`;
-    const file=new File([blob],name,{type:'application/zip'});
-    let shared=false;
-    try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});shared=true}}catch(e){if(e.name==='AbortError')shared=true}
-    if(!shared){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-      alert(`'${name}' 파일이 다운로드 폴더에 저장되었습니다.\n(${(blob.size/1048576).toFixed(1)}MB)\n내 파일 앱 또는 카톡 '나에게 보내기'로 PC에 보내세요.`)}
-    cur.exported=Date.now();await put('projects',cur);
+    const blob=await zip.generateAsync({type:'blob',compression:'STORE',mimeType:'application/zip'});
+    const d=new Date();const name=`차곡_${cur.name.replace(/[\\/:*?"<>|\s]/g,'_')}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.zip`;
+    outFile=new File([blob],name,{type:'application/zip'});
+    let canShare=false;try{canShare=!!(navigator.canShare&&navigator.canShare({files:[outFile]}))}catch(e){}
+    $('exName').textContent=name;$('exInfo').textContent=`사진 ${ph.length}장 · ${mb(blob.size)}`;
+    $('exShare').hidden=!canShare;$('exMsg').textContent='';$('exDlg').hidden=false;
   }catch(e){alert('내보내기 실패: '+e.message)}
   $('export').disabled=false;$('export').textContent='📦 내보내기 (zip)';
 };
+async function markExported(){cur.exported=Date.now();await put('projects',cur)}
+$('exSave').onclick=async()=>{
+  const u=URL.createObjectURL(outFile);const a=document.createElement('a');a.href=u;a.download=outFile.name;a.rel='noopener';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+  $('exMsg').innerHTML='✅ 저장했습니다.<br><b>내 파일 → 다운로드</b> 폴더에서 확인하세요.<br>카톡 "나에게 보내기"에서 <b>파일</b>로 첨부하면 PC로 옮길 수 있습니다.';
+  markExported();
+};
+$('exShare').onclick=async()=>{
+  try{await navigator.share({files:[outFile],title:outFile.name});$('exMsg').textContent='✅ 공유했습니다.';markExported()}
+  catch(e){if(e.name!=='AbortError')$('exMsg').textContent='공유가 안 되는 기기입니다. "다운로드 폴더에 저장"을 눌러 주세요.'}
+};
+$('exClose').onclick=()=>{$('exDlg').hidden=true;outFile=null};
 
 /* ---------- zip 불러오기 ---------- */
 $('imp').onchange=async e=>{
