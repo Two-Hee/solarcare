@@ -60,6 +60,15 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
 .mk{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:3px 8px;border-radius:12px}
 .q{color:#999;font-size:14px;margin:4px 0 0;text-align:center}
 .empty{color:#AAA;text-align:center;padding:40px 20px;line-height:1.7}
+.usage{text-align:center;color:#888;font-size:14px;margin:4px 0 14px}
+.ver{text-align:center;color:#BBB;font-size:12px;margin:24px 0 8px}
+.opt{display:flex;align-items:center;gap:8px;font-size:15px;color:#555;margin:-4px 0 14px 4px}
+.opt input{width:22px;height:22px}
+.todo{display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;color:#D33}
+.todo input{width:22px;height:22px}
+.ordbar{display:flex;gap:8px;margin-top:12px}.ordbar button{flex:1;padding:9px;font-size:15px}
+.tb{position:absolute;bottom:auto;top:36px;left:8px;background:#D33;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}
+.proj .btns{display:flex;gap:6px}.proj .btns button{padding:10px 12px;font-size:15px}
 .hero{text-align:center;padding:10px 0 18px}
 .hero img{width:84px;height:84px;border-radius:22px;box-shadow:0 6px 18px rgba(242,84,27,.25)}
 .hero h2{margin:10px 0 2px;font-size:26px}.hero p{margin:0;color:#888}
@@ -97,7 +106,10 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
 <section id="home">
   <div class="hero"><img src="icon-192.png" alt=""><h2>차곡</h2><p>찍으면 차곡차곡, 보고서는 착착</p></div>
   <div class="row"><input id="newName" placeholder="새 현장명 (예: OO빌딩 정기점검)"><button id="addProj">+ 현장 추가</button></div>
+  <div class="usage" id="usage"></div>
   <ul id="projList"></ul>
+  <div class="row" style="margin-top:16px"><label class="shot alt" style="padding:14px;font-size:16px">📥 zip 불러오기 (다른 기기에서 옮겨오기)<input id="imp" type="file" accept=".zip,application/zip" hidden></label></div>
+  <div class="ver">차곡 v1.0</div>
 </section>
 
 <section id="proj" hidden>
@@ -105,6 +117,7 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
     <label class="shot">📷 사진 촬영<input id="cam" type="file" accept="image/*" capture="environment" hidden></label>
     <label class="shot alt">🖼 앨범에서 선택<input id="gal" type="file" accept="image/*" multiple hidden></label>
   </div>
+  <label class="opt" id="contBox"><input type="checkbox" id="cont"> 저장하면 바로 다음 촬영 (연속 촬영)</label>
 
   <div id="form" class="card" hidden>
     <div class="pv">
@@ -127,6 +140,8 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
       <div class="chips" id="locChips"></div>
       <label class="f">설명</label>
       <textarea id="fDesc" rows="3" placeholder="예: 펌프 누수 확인, 패킹 교체 필요"></textarea>
+      <label class="todo"><input type="checkbox" id="fTodo"> ⚠️ 조치 필요 (보고서 요약표에 따로 모음)</label>
+      <div class="ordbar" id="ordBar" hidden><button type="button" class="ghost" id="mvUp">◀ 앞으로</button><button type="button" class="ghost" id="mvDn">뒤로 ▶</button></div>
       <div class="row" style="margin-top:14px">
         <button id="save">저장</button><button id="cancel" class="gray">취소</button><button id="del" class="red" hidden>삭제</button>
       </div>
@@ -164,6 +179,9 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const toLocal=t=>new Date(t-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
 const nowLocal=()=>toLocal(Date.now());
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sk=x=>x.sk!=null?x.sk:Date.parse(x.date)||0;
+const byOrd=(a,b)=>sk(a)-sk(b)||a.date.localeCompare(b.date);
+const mb=n=>(n/1048576).toFixed(n<10485760?1:0)+'MB';
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function lsS(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
@@ -187,13 +205,18 @@ async function renderHome(){
   $('projList').innerHTML=ps.length?ps.map(p=>{
     const n=all.filter(x=>x.pid===p.id).length;
     const ex=p.exported?`마지막 내보내기 ${new Date(p.exported).toLocaleDateString()}`:'아직 내보내지 않음';
-    return `<li class="proj"><div class="n" data-id="${p.id}"><b>${esc(p.name)}</b><small>사진 ${n}장 · ${ex}</small></div><button class="red" data-del="${p.id}">삭제</button></li>`}).join('')
+    return `<li class="proj"><div class="n" data-id="${p.id}"><b>${esc(p.name)}</b><small>사진 ${n}장 · ${ex}</small></div><div class="btns"><button class="ghost" data-ren="${p.id}">이름</button><button class="red" data-del="${p.id}">삭제</button></div></li>`}).join('')
     :'<div class="empty">첫 현장을 추가해 보세요.<br>사진을 찍으면 공종별로 차곡차곡 쌓입니다.</div>';
+  const used=all.reduce((t,x)=>t+(x.blob?.size||0)+(x.orig?.size||0),0);
+  let free='';try{const e=await navigator.storage.estimate();if(e.quota)free=` · 여유 약 ${mb(e.quota-e.usage)}`}catch(e){}
+  $('usage').textContent=all.length?`현장 ${ps.length}곳 · 사진 ${all.length}장 · ${mb(used)} 사용 중${free}`:'';
 }
 $('addProj').onclick=async()=>{const n=$('newName').value.trim();if(!n)return;const p={id:uid(),name:n,created:Date.now()};await put('projects',p);$('newName').value='';openProj(p)};
 $('projList').onclick=async e=>{
   const id=e.target.closest('[data-id]')?.dataset.id;
   if(id){openProj((await getAll('projects')).find(p=>p.id===id));return}
+  const rn=e.target.dataset.ren;
+  if(rn){const p=(await getAll('projects')).find(p=>p.id===rn);const n=prompt('새 현장명',p.name);if(n&&n.trim()){p.name=n.trim();await put('projects',p);renderHome()}return}
   const d=e.target.dataset.del;
   if(d&&confirm('이 현장과 모든 사진을 삭제할까요?')){for(const x of await photosOf(d))await del('photos',x.id);await del('projects',d);renderHome()}
 };
@@ -202,7 +225,7 @@ $('back').onclick=()=>{hideForm();renderHome()};
 /* ---------- 현장 ---------- */
 async function openProj(p){cur=p;$('home').hidden=true;$('proj').hidden=false;$('back').hidden=false;$('title').textContent=p.name;$('sub').textContent='차곡';hideForm();renderList()}
 async function renderList(){
-  const ph=(await photosOf(cur.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  const ph=(await photosOf(cur.id)).sort(byOrd);
   const folders=[...new Set(ph.map(x=>x.folder||'미분류'))];
   const fv=$('filter').value;
   $('filter').innerHTML=`<option value="">전체 (${ph.length}장)</option>`+folders.map(f=>`<option ${f===fv?'selected':''}>${esc(f)}</option>`).join('');
@@ -210,7 +233,7 @@ async function renderList(){
   document.querySelectorAll('#list img').forEach(i=>URL.revokeObjectURL(i.src));
   const grp={};ph.forEach(x=>{if(x.group)grp[x.group]=(grp[x.group]||0)+1});
   $('list').innerHTML=ph.length?show.map(f=>`<h3>📁 ${esc(f)}</h3><div class="grid">`+ph.filter(x=>(x.folder||'미분류')===f).map(x=>
-    `<div class="item" data-pid="${x.id}"><img src="${URL.createObjectURL(x.blob)}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}${grp[x.group]>1?' 🔗':''}</span>`:''}${x.orig?'<span class="mk">✏️</span>':''}<div><b>${esc(x.location)}</b><br>${esc(x.desc)}<div class="d">${x.date.replace('T',' ')}</div></div></div>`).join('')+'</div>').join('')
+    `<div class="item" data-pid="${x.id}"><img src="${URL.createObjectURL(x.blob)}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}${grp[x.group]>1?' 🔗':''}</span>`:''}${x.orig?'<span class="mk">✏️</span>':''}${x.todo?`<span class="tb" style="${x.stage?'':'top:8px'}">⚠️ 조치</span>`:''}<div><b>${esc(x.location)}</b><br>${esc(x.desc)}<div class="d">${x.date.replace('T',' ')}</div></div></div>`).join('')+'</div>').join('')
     :'<div class="empty">사진이 없습니다.<br>위의 📷 버튼으로 촬영하세요.</div>';
 }
 $('filter').onchange=renderList;
@@ -246,18 +269,19 @@ function showForm(x){
   $('fDate').value=x?x.date:(pend.fdate||nowLocal());
   $('fLoc').value=x?x.location:(lsS('lastLoc_'+cur.id)||'');
   $('fDesc').value=x?x.desc:'';
+  $('fTodo').checked=!!(x&&x.todo);$('ordBar').hidden=!x;
   $('del').hidden=!x;
   $('queueInfo').textContent=queue.length?`남은 사진 ${queue.length}장`:'';
   setStage(x?(x.stage||''):(lsS('lastStage_'+cur.id)||''));
-  chips();$('form').hidden=false;$('shotBox').hidden=true;$('form').scrollIntoView({behavior:'smooth'});
+  chips();$('form').hidden=false;$('shotBox').hidden=true;$('contBox').hidden=true;$('form').scrollIntoView({behavior:'smooth'});
 }
-function hideForm(){$('form').hidden=true;$('shotBox').hidden=false;editing=null;queue=[];pend=null}
+function hideForm(){$('form').hidden=true;$('shotBox').hidden=false;$('contBox').hidden=false;editing=null;queue=[];pend=null}
 
 async function nextQueue(){
   if(!queue.length){hideForm();renderList();return}
   const f=queue.shift();const hq=lsS('hq')==='1';
   const c=await compress(f,hq);
-  pend={...c,orig:null,hq,file:f,fdate:f._fromGallery&&f.lastModified?toLocal(f.lastModified):null};
+  pend={...c,orig:null,hq,file:f,fromCam:!f._fromGallery,fdate:f._fromGallery&&f.lastModified?toLocal(f.lastModified):null};
   editing=null;showForm(null);
 }
 $('cam').onchange=e=>{queue=[...e.target.files];e.target.value='';nextQueue()};
@@ -277,12 +301,30 @@ $('save').onclick=async()=>{
   let group=null;
   if(stage==='before')group=(editing&&editing.group)||rec.id;
   else if(stage==='during'||stage==='after')group=$('pair').value||rec.id;
-  Object.assign(rec,{folder,location:loc,desc,date,stage,group,blob:pend.blob,orig:pend.orig||null,w:pend.w,h:pend.h,hq:pend.hq});
+  const todo=$('fTodo').checked;const fromCam=pend.fromCam;
+  Object.assign(rec,{folder,location:loc,desc,date,stage,group,todo,blob:pend.blob,orig:pend.orig||null,w:pend.w,h:pend.h,hq:pend.hq});
   await put('photos',rec);
   remember('locs',loc);remember('folders',folder);
   lsS('lastFolder_'+cur.id,folder);lsS('lastLoc_'+cur.id,loc);lsS('lastStage_'+cur.id,stage);if(group)lsS('lastGroup_'+cur.id,group);
-  if(editing){hideForm();renderList()}else{renderList();nextQueue()}
+  if(editing){hideForm();renderList()}
+  else if(fromCam&&!queue.length&&$('cont').checked){hideForm();renderList();$('cam').click()}
+  else{renderList();nextQueue()}
 };
+$('cont').checked=lsS('cont')==='1';$('cont').onchange=()=>lsS('cont',$('cont').checked?'1':'0');
+
+/* 순서 바꾸기 (같은 공종 안에서) */
+async function move(dir){
+  if(!editing)return;
+  const ph=(await photosOf(cur.id)).filter(x=>(x.folder||'미분류')===(editing.folder||'미분류')).sort(byOrd);
+  const i=ph.findIndex(x=>x.id===editing.id),j=i+dir;
+  if(j<0||j>=ph.length){alert(dir<0?'이미 맨 앞입니다':'이미 맨 뒤입니다');return}
+  const vals=ph.map(sk);for(let k=1;k<vals.length;k++)if(vals[k]<=vals[k-1])vals[k]=vals[k-1]+1;
+  [ph[i],ph[j]]=[ph[j],ph[i]];
+  ph.forEach((x,k)=>x.sk=vals[k]);
+  for(const x of ph)await put('photos',x);
+  editing.sk=ph.find(x=>x.id===editing.id).sk;renderList();
+}
+$('mvUp').onclick=()=>move(-1);$('mvDn').onclick=()=>move(1);
 $('cancel').onclick=()=>{if(!editing&&queue.length){nextQueue()}else{hideForm()}};
 $('del').onclick=async()=>{if(editing&&confirm('이 사진을 삭제할까요?')){await del('photos',editing.id);hideForm();renderList()}};
 $('unmark').onclick=()=>{if(pend.orig){pend.blob=pend.orig;pend.orig=null;setPreview()}};
@@ -319,13 +361,13 @@ $('dok').onclick=()=>{
 
 /* ---------- 내보내기 ---------- */
 $('export').onclick=async()=>{
-  const ph=(await photosOf(cur.id)).sort((a,b)=>a.date.localeCompare(b.date));
+  const ph=(await photosOf(cur.id)).sort(byOrd);
   if(!ph.length){alert('사진이 없습니다');return}
   $('export').disabled=true;$('export').textContent='만드는 중…';
   try{
     const zip=new JSZip();const data={app:'chagok',version:2,project:cur.name,exportedAt:new Date().toISOString(),photos:[]};
     ph.forEach((x,i)=>{const fn=String(i+1).padStart(4,'0')+'.jpg';zip.file('photos/'+fn,x.blob);
-      data.photos.push({file:fn,folder:x.folder,date:x.date,location:x.location,desc:x.desc,w:x.w,h:x.h,stage:x.stage||'',group:x.group||null,marked:!!x.orig})});
+      data.photos.push({file:fn,folder:x.folder,date:x.date,location:x.location,desc:x.desc,w:x.w,h:x.h,stage:x.stage||'',group:x.group||null,marked:!!x.orig,todo:!!x.todo,order:i})});
     zip.file('data.json',JSON.stringify(data,null,1));
     const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
     const d=new Date();const name=`차곡_${cur.name.replace(/[\\/:*?"<>|]/g,'_')}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.zip`;
@@ -339,6 +381,24 @@ $('export').onclick=async()=>{
   $('export').disabled=false;$('export').textContent='📦 내보내기 (zip)';
 };
 
+/* ---------- zip 불러오기 ---------- */
+$('imp').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const zip=await JSZip.loadAsync(f);const j=JSON.parse(await zip.file('data.json').async('string'));
+    const name=prompt(`'${j.project}' 사진 ${j.photos.length}장을 불러옵니다.\n현장명을 확인하세요.`,j.project);if(!name)return;
+    const p={id:uid(),name:name.trim(),created:Date.now()};await put('projects',p);
+    const tag=uid()+'_';let n=0;
+    for(const x of j.photos){
+      const blob=new Blob([await zip.file('photos/'+x.file).async('arraybuffer')],{type:'image/jpeg'});
+      await put('photos',{id:uid(),pid:p.id,folder:x.folder||'미분류',location:x.location||'',desc:x.desc||'',date:x.date,stage:x.stage||'',
+        group:x.group?tag+x.group:null,todo:!!x.todo,blob,orig:null,w:x.w,h:x.h,sk:Date.parse(x.date)+(x.order||n)});n++;
+    }
+    alert(`${n}장을 불러왔습니다.`);renderHome();
+  }catch(err){alert('불러오기 실패: 차곡에서 내보낸 zip인지 확인하세요.\n'+err.message)}
+};
+
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 openDB().then(d=>{db=d;renderHome()}).catch(e=>alert('저장소를 열 수 없습니다: '+e.message));
 </script>

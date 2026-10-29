@@ -35,6 +35,8 @@ button.dark{background:var(--ink)}button.ghost{background:#fff;color:var(--c);bo
 .badge{position:absolute;top:8px;left:8px;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}
 .b-before{background:#5A6272}.b-during{background:#2B7BE4}.b-after{background:var(--c)}
 .tag{color:var(--c);font-weight:700}
+.tb{position:absolute;top:36px;left:8px;background:#D33;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px}
+.ver{text-align:center;color:#BBB;font-size:12px;margin:30px 0 10px}
 #info{font-size:15px;margin:10px 0}
 .acts{display:flex;gap:10px;flex-wrap:wrap}
 </style>
@@ -64,19 +66,21 @@ button.dark{background:var(--ink)}button.ghost{background:#fff;color:var(--c);bo
 <div class="panel">
   <h4>🧩 배치</h4>
   <label>공종 필터<select id="folder"></select></label>
-  <label>정렬<select id="sort"><option value="date">일시순</option><option value="folder">공종 → 일시순</option></select></label>
+  <label>정렬<select id="sort"><option value="app">앱에서 정한 순서</option><option value="date">일시순</option><option value="folder">공종 → 일시순</option></select></label>
   <label class="ck"><input type="checkbox" id="compare" checked> 작업 전·후 나란히 비교</label>
+  <label class="ck"><input type="checkbox" id="useSum" checked> 마지막 장 요약표 (공종별 · ⚠️조치 필요)</label>
   <label>엑셀<select id="xper"><option value="2">페이지당 2장 (1열)</option><option value="4" selected>페이지당 4장 (2열)</option><option value="6">페이지당 6장 (2열)</option></select></label>
   <label>PPT<select id="pper"><option value="1">슬라이드당 1장</option><option value="2" selected>슬라이드당 2장</option><option value="4">슬라이드당 4장</option></select></label>
   <div class="acts"><button id="bx">📊 엑셀 사진대지</button><button id="bp">📽 PPT 생성</button><button id="br" class="dark">🗂 사진 이름정리 zip</button></div>
 </div>
 <div class="grid" id="grid"></div>
 </div>
+<div class="ver">차곡 보고서 v1.0</div>
 </main>
 
 <script>
 const $=id=>document.getElementById(id);
-let items=[];
+let items=[],seqN=0;
 const STAGE={before:'작업 전',during:'작업 중',after:'작업 후'};
 const SCOL={before:'5A6272',during:'2B7BE4',after:'F2541B'};
 const SORD={before:0,during:1,after:2,'':3};
@@ -88,10 +92,10 @@ const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOS
 /* ---------- 설정 기억 ---------- */
 const KEYS=['company','author','appr'];
 function loadCfg(){try{const c=JSON.parse(localStorage.getItem('chagok_cfg')||'{}');KEYS.forEach(k=>{if(c[k]!=null)$(k).value=c[k]});
-  if(c.useCover!=null)$('useCover').checked=c.useCover;if(c.useAppr!=null)$('useAppr').checked=c.useAppr;if(c.compare!=null)$('compare').checked=c.compare;
+  if(c.useCover!=null)$('useCover').checked=c.useCover;if(c.useAppr!=null)$('useAppr').checked=c.useAppr;if(c.compare!=null)$('compare').checked=c.compare;if(c.useSum!=null)$('useSum').checked=c.useSum;
   if(c.logo)setLogo(c.logo)}catch(e){}}
-function saveCfg(){try{const c={};KEYS.forEach(k=>c[k]=$(k).value);c.useCover=$('useCover').checked;c.useAppr=$('useAppr').checked;c.compare=$('compare').checked;c.logo=logo;localStorage.setItem('chagok_cfg',JSON.stringify(c))}catch(e){}}
-['company','author','appr','useCover','useAppr','compare'].forEach(k=>$(k).addEventListener('change',saveCfg));
+function saveCfg(){try{const c={};KEYS.forEach(k=>c[k]=$(k).value);c.useCover=$('useCover').checked;c.useAppr=$('useAppr').checked;c.compare=$('compare').checked;c.useSum=$('useSum').checked;c.logo=logo;localStorage.setItem('chagok_cfg',JSON.stringify(c))}catch(e){}}
+['company','author','appr','useCover','useAppr','compare','useSum'].forEach(k=>$(k).addEventListener('change',saveCfg));
 let logo=null,logoDim=null;
 function setLogo(u){logo=u;$('logoPv').hidden=!u;$('logoDel').hidden=!u;if(u){$('logoPv').src=u;const im=new Image();im.onload=()=>logoDim={w:im.naturalWidth,h:im.naturalHeight};im.src=u}else logoDim=null}
 $('logoBtn').onclick=()=>$('logoFile').click();
@@ -118,7 +122,7 @@ async function load(files){
       names.push(j.project);const tag=Math.random().toString(36).slice(2,6);
       for(const p of j.photos){
         const b64=await zip.file('photos/'+p.file).async('base64');
-        items.push({...p,stage:p.stage||'',group:p.group?tag+p.group:null,project:j.project,url:'data:image/jpeg;base64,'+b64,on:true});
+        items.push({...p,stage:p.stage||'',group:p.group?tag+p.group:null,seq:seqN++,todo:!!p.todo,project:j.project,url:'data:image/jpeg;base64,'+b64,on:true});
       }
     }catch(e){alert(f.name+' 을(를) 읽을 수 없습니다: '+e.message)}
   }
@@ -129,7 +133,7 @@ async function load(files){
 }
 function list(){
   let a=items.filter(x=>!$('folder').value||x.folder===$('folder').value);
-  a.sort((x,y)=>$('sort').value==='folder'?(x.folder.localeCompare(y.folder)||x.date.localeCompare(y.date)):x.date.localeCompare(y.date));
+  a.sort((x,y)=>$('sort').value==='app'?x.seq-y.seq:$('sort').value==='folder'?(x.folder.localeCompare(y.folder)||x.date.localeCompare(y.date)):x.date.localeCompare(y.date));
   return a;
 }
 function refresh(){
@@ -137,7 +141,7 @@ function refresh(){
   $('folder').innerHTML='<option value="">전체</option>'+fs.map(f=>`<option ${f===v?'selected':''}>${esc(f)}</option>`).join('');
   const a=list();const pairs=new Set(a.filter(x=>x.on&&x.group&&a.filter(y=>y.on&&y.group===x.group).length>1).map(x=>x.group)).size;
   $('info').innerHTML=`사진 <b>${items.length}</b>장 불러옴 · 보고서 포함 <b>${a.filter(x=>x.on).length}</b>장 · 전·후 비교 <b>${pairs}</b>쌍 <small>(체크 해제하면 제외)</small>`;
-  $('grid').innerHTML=a.map(x=>`<div class="it ${x.on?'':'off'}"><input type="checkbox" data-i="${items.indexOf(x)}" ${x.on?'checked':''}><img src="${x.url}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}</span>`:''}<div><span class="tag">[${esc(x.folder)}]</span> ${esc(x.location)}<br>${esc(x.desc)}<br><small>${fmt(x.date)}</small></div></div>`).join('');
+  $('grid').innerHTML=a.map(x=>`<div class="it ${x.on?'':'off'}"><input type="checkbox" data-i="${items.indexOf(x)}" ${x.on?'checked':''}><img src="${x.url}">${x.stage?`<span class="badge b-${x.stage}">${STAGE[x.stage]}</span>`:''}${x.todo?`<span class="tb" style="${x.stage?'':'top:8px'}">⚠️ 조치</span>`:''}<div><span class="tag">[${esc(x.folder)}]</span> ${esc(x.location)}<br>${esc(x.desc)}<br><small>${fmt(x.date)}</small></div></div>`).join('');
 }
 $('grid').onchange=e=>{const i=e.target.dataset.i;if(i!=null){items[i].on=e.target.checked;refresh()}};
 $('folder').onchange=refresh;$('sort').onchange=refresh;
@@ -158,6 +162,10 @@ function arrange(cols){
 const cover=()=>({on:$('useCover').checked,title:$('title').value||'사진대지',site:$('site').value,company:$('company').value,author:$('author').value,date:$('rdate').value,
   appr:$('useAppr').checked?$('appr').value.split(',').map(s=>s.trim()).filter(Boolean).slice(0,5):[]});
 
+function summary(a){
+  const fs={};a.forEach(x=>{const f=fs[x.folder]=fs[x.folder]||{n:0,before:0,after:0,todo:0};f.n++;if(x.stage==='before')f.before++;if(x.stage==='after')f.after++;if(x.todo)f.todo++});
+  return {fs,todos:a.filter(x=>x.todo)};
+}
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 async function busy(btn,fn){const t=btn.textContent;btn.disabled=true;btn.textContent='생성 중…';try{await fn()}catch(e){alert('오류: '+e.message);console.error(e)}btn.disabled=false;btn.textContent=t}
 
@@ -187,6 +195,27 @@ function excelCover(wb,cv,count,folders){
     V.font={name:FN,size:11};V.alignment={vertical:'middle',indent:1,wrapText:true};[3,4,5].forEach(c=>ws.getCell(R,c).border=bd)});
   ws.mergeCells(38,1,38,6);const f=ws.getCell(38,1);f.value=cv.company||'';f.font={name:FN,size:14,bold:true};f.alignment={horizontal:'center'};
   ws.pageSetup.printArea='A1:F40';
+}
+function excelSummary(wb,cv,a){
+  const {fs,todos}=summary(a);
+  const ws=wb.addWorksheet('요약',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.4,right:.4,top:.5,bottom:.5,header:.2,footer:.2}}});
+  ws.columns=[{width:6},{width:16},{width:22},{width:40},{width:18}];
+  const hd=c=>{c.font={name:FN,size:10,bold:true};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF1E8'}};c.alignment={horizontal:'center',vertical:'middle'};c.border=bd};
+  const td=(c,v,al)=>{c.value=v;c.font={name:FN,size:10};c.alignment={horizontal:al||'left',vertical:'middle',wrapText:true};c.border=bd};
+  ws.mergeCells(1,1,1,5);const t=ws.getCell(1,1);t.value=cv.title+' - 요약';t.font={name:FN,size:14,bold:true};t.alignment={horizontal:'center'};t.border={bottom:{style:'medium',color:{argb:'FFF2541B'}}};ws.getRow(1).height=28;
+  ws.getCell(3,1).value='■ 공종별 현황';ws.getCell(3,1).font={name:FN,size:11,bold:true,color:{argb:'FFF2541B'}};
+  ['No','공종','사진 수','작업 전 / 작업 후','⚠️ 조치 필요'].forEach((h,i)=>{const c=ws.getCell(4,i+1);c.value=h;hd(c)});
+  let r=5,k=1,tot={n:0,before:0,after:0,todo:0};
+  for(const [f,v] of Object.entries(fs)){td(ws.getCell(r,1),k++,'center');td(ws.getCell(r,2),f);td(ws.getCell(r,3),v.n+'장','center');td(ws.getCell(r,4),`${v.before} / ${v.after}`,'center');td(ws.getCell(r,5),v.todo?v.todo+'건':'-','center');
+    if(v.todo)ws.getCell(r,5).font={name:FN,size:10,bold:true,color:{argb:'FFDD3333'}};Object.keys(tot).forEach(q=>tot[q]+=v[q]);r++}
+  hd(ws.getCell(r,1));ws.getCell(r,1).value='계';ws.mergeCells(r,1,r,2);
+  [[3,tot.n+'장'],[4,`${tot.before} / ${tot.after}`],[5,tot.todo?tot.todo+'건':'-']].forEach(([c,v])=>{const x=ws.getCell(r,c);x.value=v;hd(x)});
+  r+=2;
+  ws.getCell(r,1).value='■ 조치 필요 항목';ws.getCell(r,1).font={name:FN,size:11,bold:true,color:{argb:'FFDD3333'}};r++;
+  ['No','공종','위치','내용','일시'].forEach((h,i)=>{const c=ws.getCell(r,i+1);c.value=h;hd(c)});r++;
+  if(!todos.length){ws.mergeCells(r,1,r,5);td(ws.getCell(r,1),'조치 필요 항목 없음','center');r++}
+  todos.forEach((x,i)=>{td(ws.getCell(r,1),i+1,'center');td(ws.getCell(r,2),x.folder);td(ws.getCell(r,3),x.location||'');td(ws.getCell(r,4),x.desc||'');td(ws.getCell(r,5),fmt(x.date),'center');ws.getRow(r).height=30;r++});
+  ws.pageSetup.printArea=`A1:E${r}`;
 }
 $('bx').onclick=()=>busy($('bx'),async()=>{
   const per=+$('xper').value,cols=per===2?1:2,rowsPer=per===6?3:2,imgRows=per===6?8:15,RH=18,PX=RH*4/3;
@@ -243,6 +272,7 @@ $('bx').onclick=()=>busy($('bx'),async()=>{
     if(p+per<a.length)ws.getRow(r-1).addPageBreak();
   }
   ws.pageSetup.printArea=`A1:${String.fromCharCode(64+widths.length)}${r-1}`;
+  if($('useSum').checked)excelSummary(wb,cv,a.filter(Boolean));
   const buf=await wb.xlsx.writeBuffer();
   dl(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),safe(cv.title)+'.xlsx');
 });
@@ -263,6 +293,26 @@ function pptCover(pptx,cv,count){
   const lines=[['현장명',cv.site],['업체명',cv.company],['작성자',cv.author],['작성일',cv.date],['사진 매수',count+'장']].filter(l=>l[1]);
   s.addTable(lines.map(l=>[{text:l[0],options:{bold:true,fill:{color:'FFF1E8'},align:'center'}},{text:l[1]}]),
     {x:2.6,y:3.0,colW:[1.3,3.5],rowH:.34,fontFace:FN,fontSize:12,color:'2B2F3A',border:{type:'solid',color:'DDDDDD',pt:.75},valign:'middle'});
+}
+function pptSummary(pptx,cv,a){
+  const {fs,todos}=summary(a);
+  const H=o=>({text:o,options:{bold:true,fill:{color:'FFF1E8'},align:'center'}});
+  const head=s=>{s.addText(cv.title+' - 요약',{x:.3,y:.15,w:9.4,h:.45,fontFace:FN,fontSize:18,bold:true,color:'2B2F3A'});s.addShape(pptx.ShapeType.line,{x:.3,y:.62,w:9.4,h:0,line:{color:'F2541B',width:2}})};
+  const opt={fontFace:FN,fontSize:10,color:'2B2F3A',border:{type:'solid',color:'CCCCCC',pt:.75},valign:'middle'};
+  let s=pptx.addSlide();head(s);
+  s.addText('■ 공종별 현황',{x:.3,y:.75,w:4,h:.3,fontFace:FN,fontSize:12,bold:true,color:'F2541B'});
+  const rows=[[H('공종'),H('사진 수'),H('작업 전 / 후'),H('⚠️ 조치 필요')]];
+  Object.entries(fs).forEach(([f,v])=>rows.push([f,{text:v.n+'장',options:{align:'center'}},{text:`${v.before} / ${v.after}`,options:{align:'center'}},{text:v.todo?v.todo+'건':'-',options:{align:'center',bold:!!v.todo,color:v.todo?'DD3333':'2B2F3A'}}]));
+  s.addTable(rows,{x:.3,y:1.1,colW:[3.4,1.6,2,2.4],rowH:.3,...opt,autoPage:true,autoPageRepeatHeader:true});
+  const per=12;
+  for(let p=0;p<Math.max(1,todos.length);p+=per){
+    s=pptx.addSlide();head(s);
+    s.addText('■ 조치 필요 항목',{x:.3,y:.75,w:4,h:.3,fontFace:FN,fontSize:12,bold:true,color:'DD3333'});
+    const tr=[[H('No'),H('공종'),H('위치'),H('내용'),H('일시')]];
+    if(!todos.length)tr.push([{text:'조치 필요 항목 없음',options:{colspan:5,align:'center'}}]);
+    todos.slice(p,p+per).forEach((x,i)=>tr.push([{text:String(p+i+1),options:{align:'center'}},x.folder,x.location||'',x.desc||'',{text:fmt(x.date),options:{align:'center'}}]));
+    s.addTable(tr,{x:.3,y:1.1,colW:[.5,1.5,2,3.7,1.7],rowH:.3,...opt});
+  }
 }
 $('bp').onclick=()=>busy($('bp'),async()=>{
   const n=+$('pper').value,cols=n===1?1:2,rows=n===4?2:1;
@@ -291,6 +341,7 @@ $('bp').onclick=()=>busy($('bp'),async()=>{
       ],{x:cx,y:cy+bh+.02,w:bw,h:cap,fontFace:FN,fontSize:fs,valign:'top',margin:2});
     });
   }
+  if($('useSum').checked)pptSummary(pptx,cv,a.filter(Boolean));
   await pptx.writeFile({fileName:safe(cv.title)+'.pptx'});
 });
 
