@@ -39,6 +39,8 @@ label.f{display:block;margin:12px 0 5px;font-weight:600;font-size:15px;color:#66
 .hq input{width:22px;height:22px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chip{background:#FFF1E8;color:var(--c);border:1px solid #FFD2BD;padding:6px 12px;border-radius:20px;font-size:15px;font-weight:500}
+.chip.del{background:#FFECEC;color:#D33;border-color:#F5B5B5}
+.chip.ed{background:#fff;color:#888;border:1px dashed #BBB}
 .seg{display:flex;border:1px solid #DDD;border-radius:10px;overflow:hidden}
 .seg button{flex:1;background:#fff;color:#666;border-radius:0;font-size:15px;padding:11px 4px;border-right:1px solid #EEE}
 .seg button:last-child{border-right:0}
@@ -112,7 +114,7 @@ h3{margin:18px 0 8px;font-size:17px;color:var(--c)}
   <div class="usage" id="usage"></div>
   <ul id="projList"></ul>
   <div class="row" style="margin-top:16px"><label class="shot alt" style="padding:14px;font-size:16px">📥 zip 불러오기 (다른 기기에서 옮겨오기)<input id="imp" type="file" accept=".zip,application/zip" hidden></label></div>
-  <div class="ver">차곡 v1.0.2</div>
+  <div class="ver">차곡 v1.0.3</div>
 </section>
 
 <section id="proj" hidden>
@@ -255,12 +257,22 @@ $('list').onclick=async e=>{const id=e.target.closest('[data-pid]')?.dataset.pid
   pend={blob:x.blob,orig:x.orig||null,w:x.w,h:x.h,hq:!!x.hq,file:null};showForm(x)};
 
 /* ---------- 입력 폼 ---------- */
-function chips(){
-  $('locChips').innerHTML=lsGet('locs').map(l=>`<button type="button" class="chip" data-v="${esc(l)}">${esc(l)}</button>`).join('');
-  $('folderChips').innerHTML=lsGet('folders').map(l=>`<button type="button" class="chip" data-v="${esc(l)}">${esc(l)}</button>`).join('');
+const edMode={locs:false,folders:false};
+function chipHTML(key){
+  const a=lsGet(key);if(!a.length)return'';
+  const ed=edMode[key];
+  return a.map(l=>`<button type="button" class="chip${ed?' del':''}" data-v="${esc(l)}">${esc(l)}${ed?' ✕':''}</button>`).join('')
+    +`<button type="button" class="chip ed" data-ed="1">${ed?'완료':'편집'}</button>`;
 }
-$('locChips').onclick=e=>{if(e.target.dataset.v!=null)$('fLoc').value=e.target.dataset.v};
-$('folderChips').onclick=e=>{if(e.target.dataset.v!=null)$('fFolder').value=e.target.dataset.v};
+function chips(){$('locChips').innerHTML=chipHTML('locs');$('folderChips').innerHTML=chipHTML('folders')}
+function chipClick(key,input){return e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.ed){edMode[key]=!edMode[key];chips();return}
+  const v=b.dataset.v;if(v==null)return;
+  if(edMode[key]){lsSet(key,lsGet(key).filter(x=>x!==v));chips()}else $(input).value=v;
+}}
+$('locChips').onclick=chipClick('locs','fLoc');
+$('folderChips').onclick=chipClick('folders','fFolder');
 
 function setPreview(){if($('preview').src)URL.revokeObjectURL($('preview').src);$('preview').src=URL.createObjectURL(pend.blob);$('unmark').hidden=!pend.orig}
 function setStage(s){stage=s;document.querySelectorAll('#stage button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));fillPair()}
@@ -289,7 +301,7 @@ function showForm(x){
   setStage(x?(x.stage||''):(lsS('lastStage_'+cur.id)||''));
   chips();$('form').hidden=false;$('shotBox').hidden=true;$('contBox').hidden=true;$('form').scrollIntoView({behavior:'smooth'});
 }
-function hideForm(){$('form').hidden=true;$('shotBox').hidden=false;$('contBox').hidden=false;editing=null;queue=[];pend=null}
+function hideForm(){edMode.locs=edMode.folders=false;$('form').hidden=true;$('shotBox').hidden=false;$('contBox').hidden=false;editing=null;queue=[];pend=null}
 
 async function nextQueue(){
   if(!queue.length){hideForm();renderList();return}
@@ -307,7 +319,7 @@ $('hq').onchange=async()=>{
   Object.assign(pend,await compress(pend.file,pend.hq),{orig:null});setPreview();
 };
 
-function remember(key,v){if(!v)return;let a=lsGet(key).filter(x=>x!==v);a.unshift(v);lsSet(key,a.slice(0,15))}
+function remember(key,v){if(!v)return;let a=lsGet(key).filter(x=>x!==v);a.unshift(v);lsSet(key,a.slice(0,20))}
 
 $('save').onclick=async()=>{
   const folder=$('fFolder').value.trim()||'미분류',loc=$('fLoc').value.trim(),desc=$('fDesc').value.trim(),date=$('fDate').value||nowLocal();

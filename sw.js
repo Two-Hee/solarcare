@@ -1,5 +1,5 @@
 // 차곡 오프라인 캐시 (한 번 열면 인터넷 없이도 동작)
-const CACHE = 'chagok-v1.0.2';
+const CACHE = 'chagok-v1.0.3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
 
